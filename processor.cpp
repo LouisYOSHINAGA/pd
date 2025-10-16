@@ -5,6 +5,9 @@
 #include "const.h"
 
 
+#define INPUT_EVENT_CHANNELS 1
+
+
 namespace Steinberg {
 namespace Vst {
 
@@ -21,8 +24,8 @@ PDProcessor::PDProcessor(){
 void PDProcessor::initializeParameter(void){
     this->volume = 0.8;
     this->waveform = WaveformType::WAVEFORM_SAWTOOTH;
+    this->noteFreqListPressed.clear();
     this->theta = 0.0;
-    this->pitchList.clear();
 }
 
 tresult PLUGIN_API PDProcessor::initialize(FUnknown* context){
@@ -105,16 +108,13 @@ void PDProcessor::processEvent(IEventList* eventList){
 }
 
 void PDProcessor::onNoteOn(int channel, int note, float velocity){
-    float pitch = (440.f * powf(2.0f, (float)(note-69)/12));
-    this->pitchList.push_back(pitch);
+    this->noteFreqListPressed.push_back(NoteFreqTuple(note));
 }
 
 void PDProcessor::onNoteOff(int channel, int note, float velocity){
-    float pitch = (440.f * powf(2.0f, (float)(note-69)/12));
-    for(int i = 0; i < this->pitchList.size(); i++){
-        if(this->pitchList[i] == pitch){
-            this->pitchList.erase(this->pitchList.begin()+i);
-            break;
+    for(int16 i = 0; i < this->noteFreqListPressed.size(); i++){
+        if(this->noteFreqListPressed[i].isSameNote(note)){
+            this->noteFreqListPressed.erase(this->noteFreqListPressed.begin()+i);
         }
     }
 }
@@ -124,14 +124,14 @@ void PDProcessor::processReplacing(ProcessData& data){
     Sample32* outL = data.outputs[0].channelBuffers32[0];
     Sample32* outR = data.outputs[0].channelBuffers32[1];
 
-    if(this->pitchList.size() == 0){  // no sound
+    if(this->noteFreqListPressed.size() == 0){  // no sound
         memset(outL, 0.0, sizeof(Sample32)*data.numSamples);
         memset(outR, 0.0, sizeof(Sample32)*data.numSamples);
         return;
     }
 
     for(int32 i = 0; i < data.numSamples; i++){
-        float pitch = pitch = pitchList[pitchList.size()-1];
+        double pitch = this->noteFreqListPressed[this->noteFreqListPressed.size()-1].getFreq();
         this->theta += (2.0f * M_PI * pitch) / SAMPLING_RATE;
         outL[i] = 0.8 * this->volume * cos(theta);
         outR[i] = 0.8 * this->volume * cos(theta);

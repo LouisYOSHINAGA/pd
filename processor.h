@@ -1,13 +1,11 @@
 #pragma once
 
 #include <vector>
+#include <tuple>
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include "pluginterfaces/vst/ivstevents.h"
 #include "const.h"
-
-
-#define INPUT_EVENT_CHANNELS 1
 
 
 using namespace std;
@@ -15,11 +13,29 @@ namespace Steinberg {
 namespace Vst {
 
 
+class NoteFreqTuple {
+    private:
+        int note;
+        double freq;
+    public:
+        NoteFreqTuple(int note){
+            this->note = note;
+            this->freq = 440.0 * pow(2.0, (note - 69) / 12.0);
+        }
+        virtual double getFreq(void){
+            return this->freq;
+        }
+        virtual bool isSameNote(int note){
+            return this->note == note;
+        }
+};
+
+
 class PDProcessor: public AudioEffect {
     protected:
         ParamValue volume;
         WaveformType waveform;
-        vector<float> pitchList;
+        vector<NoteFreqTuple> noteFreqListPressed;
         ParamValue theta;
     public:
         static FUnknown* createInstance(void*);
