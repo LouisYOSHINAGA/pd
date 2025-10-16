@@ -131,11 +131,24 @@ void PDProcessor::processReplacing(ProcessData& data){
     }
 
     for(int32 i = 0; i < data.numSamples; i++){
-        double pitch = this->noteFreqListPressed[this->noteFreqListPressed.size()-1].getFreq();
-        this->theta += (2.0f * M_PI * pitch) / SAMPLING_RATE;
-        outL[i] = 0.8 * this->volume * cos(theta);
-        outR[i] = 0.8 * this->volume * cos(theta);
+        // test implementation: Simple Cosine
+        double value = this->generate();
+        outL[i] = value;
+        outR[i] = value;
     }
+}
+
+void PDProcessor::proceed(void){
+    double freq = this->noteFreqListPressed[this->noteFreqListPressed.size()-1].getFreq();
+    this->theta += 2 * M_PI * freq / SAMPLING_RATE;
+    if( this->theta >= 2 * M_PI ){
+        this->theta -= 2 * M_PI;
+    }
+}
+
+double PDProcessor::generate(void){
+    this->proceed();
+    return this->volume * cos(this->theta);
 }
 
 

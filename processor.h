@@ -49,6 +49,8 @@ class PDProcessor: public AudioEffect {
         virtual void processReplacing(ProcessData&);
         virtual void onNoteOn(int, int, float);
         virtual void onNoteOff(int, int, float);
+        virtual void proceed(void);
+        virtual double generate(void);
 };
 
 
