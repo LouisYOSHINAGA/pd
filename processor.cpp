@@ -1,6 +1,4 @@
 #include "processor.h"
-#define _USE_MATH_DEFINES
-#include <math.h>
 #include "config.h"
 #include "const.h"
 
@@ -23,9 +21,8 @@ PDProcessor::PDProcessor(){
 
 void PDProcessor::initializeParameter(void){
     this->volume = 0.8;
-    this->waveform = WaveformType::WAVEFORM_SAWTOOTH;
     this->noteFreqListPressed.clear();
-    this->theta = 0.0;
+    this->pd = PD();
 }
 
 tresult PLUGIN_API PDProcessor::initialize(FUnknown* context){
@@ -73,7 +70,10 @@ void PDProcessor::processParameter(ProcessData& data){
                 this->volume = value;
                 break;
             case PARAM_ID_WAVEFORM:
-                this->waveform = static_cast<WaveformType>(static_cast<int8>(value));
+                this->pd.setWaveform(static_cast<WaveformType>(static_cast<int8>(value)));
+                break;
+            case PARAM_ID_DCW:
+                this->pd.setDcw(value);
                 break;
             default:
                 // do nothing
@@ -131,24 +131,15 @@ void PDProcessor::processReplacing(ProcessData& data){
     }
 
     for(int32 i = 0; i < data.numSamples; i++){
-        // test implementation: Simple Cosine
         double value = this->generate();
         outL[i] = value;
         outR[i] = value;
     }
 }
 
-void PDProcessor::proceed(void){
-    double freq = this->noteFreqListPressed[this->noteFreqListPressed.size()-1].getFreq();
-    this->theta += 2 * M_PI * freq / SAMPLING_RATE;
-    if( this->theta >= 2 * M_PI ){
-        this->theta -= 2 * M_PI;
-    }
-}
-
 double PDProcessor::generate(void){
-    this->proceed();
-    return this->volume * cos(this->theta);
+    double freq = this->noteFreqListPressed[this->noteFreqListPressed.size()-1].getFreq();
+    return this->volume * this->pd.generate(freq);
 }
 
 

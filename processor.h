@@ -6,6 +6,7 @@
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include "pluginterfaces/vst/ivstevents.h"
 #include "const.h"
+#include "pd.h"
 
 
 using namespace std;
@@ -34,9 +35,8 @@ class NoteFreqTuple {
 class PDProcessor: public AudioEffect {
     protected:
         ParamValue volume;
-        WaveformType waveform;
         vector<NoteFreqTuple> noteFreqListPressed;
-        ParamValue theta;
+        PD pd;
     public:
         static FUnknown* createInstance(void*);
         PDProcessor();
@@ -49,7 +49,6 @@ class PDProcessor: public AudioEffect {
         virtual void processReplacing(ProcessData&);
         virtual void onNoteOn(int, int, float);
         virtual void onNoteOff(int, int, float);
-        virtual void proceed(void);
         virtual double generate(void);
 };
 

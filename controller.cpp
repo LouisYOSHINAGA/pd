@@ -39,6 +39,13 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context){
         waveform->appendString(STR16("8: Resonance III Trapezoid"));
         parameters.addParameter(waveform);
 
+        // DCW
+        Parameter* dcw = new Parameter(
+            STR16("DCW"),  // title
+            PARAM_ID_DCW  // tag
+        );
+        parameters.addParameter(dcw);
+
         // add initialize here if needed
     }
     return result;

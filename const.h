@@ -7,6 +7,7 @@
 typedef enum{
     PARAM_ID_VOLUME,
     PARAM_ID_WAVEFORM,
+    PARAM_ID_DCW,
     N_PARAMS
 } ParamID;
 
