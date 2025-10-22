@@ -2,6 +2,7 @@
 
 
 #define SAMPLING_RATE 44100
+#define EPSILON 0.00001
 
 
 typedef enum{

@@ -27,17 +27,17 @@ class SawToothPhaseGenerator: public AbstractPhaseGenerator{
         virtual double getPhase(double);
 };
 
-// class SquarePhaseGenerator: public AbstractPhaseGenerator{
-//     private:
-//         double breakpoint;
-//         double slopeLeft;
-//         double slopeRight;
-//     public:
-//         SquarePhaseGenerator();
-//         SquarePhaseGenerator(double);
-//         virtual void setDcw(double);
-//         virtual double getPhase(double);
-// };
+class SquarePhaseGenerator: public AbstractPhaseGenerator{
+    private:
+        double breakpoint;
+        double slopeLeft;
+        double slopeRight;
+    public:
+        SquarePhaseGenerator();
+        SquarePhaseGenerator(double);
+        virtual void setDcw(double);
+        virtual double getPhase(double);
+};
 
 // class PulsePhaseGenerator: public AbstractPhaseGenerator{
 //     private:
@@ -104,7 +104,7 @@ class PD{
         double phasetime;
 
         SawToothPhaseGenerator sawToothPhaseGenerator;
-        // SquarePhaseGenerator squarePhaseGenerator;
+        SquarePhaseGenerator squarePhaseGenerator;
         // PulsePhaseGenerator pulsePhaseGenerator;
         // DoubleSinePhaseGenerator doubleSinePhaseGenerator;
         // SawPlusePhaseGenerator sawPulsePhaseGenerator;
@@ -115,7 +115,7 @@ class PD{
         std::unique_ptr<AbstractPhaseGenerator> phaseGenerator;
     public:
         PD();
-        virtual void setWaveform(WaveformType);
+        virtual void setWaveform(int8);
         virtual void setDcw(void);
         virtual void setDcw(ParamValue);
         virtual double generate(double);

@@ -32,30 +32,30 @@ double SawToothPhaseGenerator::getPhase(double phasetime){
 }
 
 
-// SquarePhaseGenerator::SquarePhaseGenerator(){
-// }
+SquarePhaseGenerator::SquarePhaseGenerator(){
+}
 
-// SquarePhaseGenerator::SquarePhaseGenerator(double dcw){
-//     this->setDcw(dcw);
-// }
+SquarePhaseGenerator::SquarePhaseGenerator(double dcw){
+    this->setDcw(dcw);
+}
 
-// void SquarePhaseGenerator::setDcw(double dcw){
-//     this->breakpoint = M_PI * (1 - dcw);
-//     this->slopeLeft = (M_PI - PHASE_EPSILON) / (M_PI * (1 - dcw));
-//     this->slopeRight = PHASE_EPSILON / (M_PI * dcw);
-// }
+void SquarePhaseGenerator::setDcw(double dcw){
+    this->breakpoint = M_PI * (1 - dcw);
+    this->slopeLeft = (M_PI - PHASE_EPSILON) / (M_PI * (1 - dcw));
+    this->slopeRight = PHASE_EPSILON / (M_PI * dcw);
+}
 
-// double SquarePhaseGenerator::getPhase(double phasetime){
-//     if(phasetime < this->breakpoint){
-//         return this->slopeLeft * phasetime;
-//     }else if(this->breakpoint <= phasetime && phasetime < M_PI){
-//         return (M_PI - PHASE_EPSILON) + this->slopeRight * (phasetime - this->breakpoint);
-//     }else if(M_PI <= phasetime && phasetime < M_PI + this->breakpoint){
-//         return M_PI + this->slopeRight * (phasetime - M_PI);
-//     }else{
-//         return (2 * M_PI - PHASE_EPSILON) + this->slopeRight * (phasetime - (M_PI + this->breakpoint));
-//     }
-// }
+double SquarePhaseGenerator::getPhase(double phasetime){
+    if(phasetime < this->breakpoint){
+        return this->slopeLeft * phasetime;
+    }else if(this->breakpoint <= phasetime && phasetime < M_PI){
+        return (M_PI - PHASE_EPSILON) + this->slopeRight * (phasetime - this->breakpoint);
+    }else if(M_PI <= phasetime && phasetime < M_PI + this->breakpoint){
+        return M_PI + this->slopeLeft * (phasetime - M_PI);
+    }else{
+        return (2 * M_PI - PHASE_EPSILON) + this->slopeRight * (phasetime - (M_PI + this->breakpoint));
+    }
+}
 
 
 // PulsePhaseGenerator::PulsePhaseGenerator(){
@@ -92,15 +92,15 @@ PD::PD():
     phaseGenerator(std::make_unique<SawToothPhaseGenerator>(this->dcw)){
 }
 
-void PD::setWaveform(WaveformType waveform){
-    this->waveform = waveform;
+void PD::setWaveform(int8 waveformIndex){
+    this->waveform = static_cast<WaveformType>(waveformIndex);
     switch(this->waveform){
         case WaveformType::WAVEFORM_SAWTOOTH:
             this->phaseGenerator = std::make_unique<SawToothPhaseGenerator>(this->dcw);
             break;
-        // case WaveformType::WAVEFORM_SQUARE:
-        //     this->phaseGenerator = std::make_unique<SquarePhaseGenerator>(this->dcw);
-        //     break;
+        case WaveformType::WAVEFORM_SQUARE:
+            this->phaseGenerator = std::make_unique<SquarePhaseGenerator>(this->dcw);
+            break;
         // case WaveformType::WAVEFORM_PULSE:
         //     this->phaseGenerator =  std::make_unique<PulsePhaseGenerator>(this->dcw);
         //     break;

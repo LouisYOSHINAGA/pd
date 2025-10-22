@@ -70,7 +70,11 @@ void PDProcessor::processParameter(ProcessData& data){
                 this->volume = value;
                 break;
             case PARAM_ID_WAVEFORM:
-                this->pd.setWaveform(static_cast<WaveformType>(static_cast<int8>(value)));
+                this->pd.setWaveform(
+                    static_cast<int8>(
+                        value * static_cast<int8>(WaveformType::N_WAVEFORMS) + EPSILON
+                    )
+                );
                 break;
             case PARAM_ID_DCW:
                 this->pd.setDcw(value);
