@@ -53,7 +53,7 @@ void PDProcessor::processParameter(ProcessData& data){
         return;
     }
 
-    int8 paramChangeCount = data.inputParameterChanges->getParameterCount();
+    // int8 paramChangeCount = data.inputParameterChanges->getParameterCount();
     int32 sampleOffset;
     ParamValue value;
 

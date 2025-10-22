@@ -10,6 +10,8 @@ namespace Vst {
 
 
 class AbstractPhaseGenerator{
+    protected:
+        static constexpr double DCW_CORRECT_COEF = 0.9;
     public:
         virtual void setDcw(double) = 0;
         virtual double getPhase(double) = 0;
@@ -39,17 +41,17 @@ class SquarePhaseGenerator: public AbstractPhaseGenerator{
         virtual double getPhase(double);
 };
 
-// class PulsePhaseGenerator: public AbstractPhaseGenerator{
-//     private:
-//         double breakpoint;
-//         double slopeLeft;
-//         double slopeRight;
-//     public:
-//         PulsePhaseGenerator();
-//         PulsePhaseGenerator(double);
-//         virtual void setDcw(double);
-//         virtual double getPhase(double);
-// };
+class PulsePhaseGenerator: public AbstractPhaseGenerator{
+    private:
+        double breakpoint;
+        double slopeLeft;
+        double slopeRight;
+    public:
+        PulsePhaseGenerator();
+        PulsePhaseGenerator(double);
+        virtual void setDcw(double);
+        virtual double getPhase(double);
+};
 
 // class DoubleSinePhaseGenerator: public AbstractPhaseGenerator{
 //     private:
@@ -105,7 +107,7 @@ class PD{
 
         SawToothPhaseGenerator sawToothPhaseGenerator;
         SquarePhaseGenerator squarePhaseGenerator;
-        // PulsePhaseGenerator pulsePhaseGenerator;
+        PulsePhaseGenerator pulsePhaseGenerator;
         // DoubleSinePhaseGenerator doubleSinePhaseGenerator;
         // SawPlusePhaseGenerator sawPulsePhaseGenerator;
         // ResonanceSawToothPhaseGenerator resonanceSawToothPhaseGenerator;
@@ -116,7 +118,7 @@ class PD{
     public:
         PD();
         virtual void setWaveform(int8);
-        virtual void setDcw(void);
+        // virtual void setDcw(void);
         virtual void setDcw(ParamValue);
         virtual double generate(double);
 };

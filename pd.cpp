@@ -3,7 +3,7 @@
 #include <math.h>
 
 
-#define PHASE_EPSILON (M_PI / 128.0)
+#define PHASE_EPSILON (M_PI / 64.0)
 
 
 namespace Steinberg {
@@ -18,9 +18,10 @@ SawToothPhaseGenerator::SawToothPhaseGenerator(double dcw){
 }
 
 void SawToothPhaseGenerator::setDcw(double dcw){
-    this->breakpoint = M_PI * (1 - dcw);
-    this->slopeLeft = 1 / (1 - dcw);
-    this->slopeRight = 1 / (1 + dcw);
+    double corrDcw = DCW_CORRECT_COEF * dcw;
+    this->breakpoint = M_PI * (1 - corrDcw);
+    this->slopeLeft = 1 / (1 - corrDcw);
+    this->slopeRight = 1 / (1 + corrDcw);
 }
 
 double SawToothPhaseGenerator::getPhase(double phasetime){
@@ -40,9 +41,10 @@ SquarePhaseGenerator::SquarePhaseGenerator(double dcw){
 }
 
 void SquarePhaseGenerator::setDcw(double dcw){
-    this->breakpoint = M_PI * (1 - dcw);
-    this->slopeLeft = (M_PI - PHASE_EPSILON) / (M_PI * (1 - dcw));
-    this->slopeRight = PHASE_EPSILON / (M_PI * dcw);
+    double corrDcw = DCW_CORRECT_COEF * dcw;
+    this->breakpoint = M_PI * (1 - corrDcw);
+    this->slopeLeft = (M_PI - PHASE_EPSILON) / (M_PI * (1 - corrDcw));
+    this->slopeRight = PHASE_EPSILON / (M_PI * corrDcw);
 }
 
 double SquarePhaseGenerator::getPhase(double phasetime){
@@ -58,30 +60,31 @@ double SquarePhaseGenerator::getPhase(double phasetime){
 }
 
 
-// PulsePhaseGenerator::PulsePhaseGenerator(){
-// }
+PulsePhaseGenerator::PulsePhaseGenerator(){
+}
 
-// PulsePhaseGenerator::PulsePhaseGenerator(double dcw){
-//     this->setDcw(dcw);
-// }
+PulsePhaseGenerator::PulsePhaseGenerator(double dcw){
+    this->setDcw(dcw);
+}
 
-// void PulsePhaseGenerator::setDcw(double dcw){
-//     this->breakpoint = M_PI * dcw;
-//     this->slopeLeft = PHASE_EPSILON / (M_PI * dcw);
-//     this->slopeRight = (M_PI - PHASE_EPSILON) / (M_PI * dcw);
-// }
+void PulsePhaseGenerator::setDcw(double dcw){
+    double corrDcw = DCW_CORRECT_COEF * dcw;
+    this->breakpoint = M_PI * corrDcw;
+    this->slopeLeft = PHASE_EPSILON / (M_PI * corrDcw);
+    this->slopeRight = (M_PI - PHASE_EPSILON) / (M_PI * (1 - corrDcw));
+}
 
-// double PulsePhaseGenerator::getPhase(double phasetime){
-//     if(phasetime < this->breakpoint){
-//         return this->slopeLeft * phasetime;
-//     }else if(this->breakpoint <= phasetime && phasetime < M_PI){
-//         return PHASE_EPSILON + this->slopeLeft * (phasetime - this->breakpoint);
-//     }else if(M_PI <= phasetime && phasetime < 2 * M_PI - this->breakpoint){
-//         return M_PI + this->slopeRight * (phasetime - M_PI);
-//     }else{
-//         return (2 * M_PI - PHASE_EPSILON) + this->slopeLeft * (phasetime - (2 * M_PI - this->breakpoint));
-//     }
-// }
+double PulsePhaseGenerator::getPhase(double phasetime){
+    if(phasetime < this->breakpoint){
+        return this->slopeLeft * phasetime;
+    }else if(this->breakpoint <= phasetime && phasetime < M_PI){
+        return PHASE_EPSILON + this->slopeRight * (phasetime - this->breakpoint);
+    }else if(M_PI <= phasetime && phasetime < 2 * M_PI - this->breakpoint){
+        return M_PI + this->slopeRight * (phasetime - M_PI);
+    }else{
+        return (2 * M_PI - PHASE_EPSILON) + this->slopeLeft * (phasetime - (2 * M_PI - this->breakpoint));
+    }
+}
 
 
 PD::PD():
@@ -101,9 +104,9 @@ void PD::setWaveform(int8 waveformIndex){
         case WaveformType::WAVEFORM_SQUARE:
             this->phaseGenerator = std::make_unique<SquarePhaseGenerator>(this->dcw);
             break;
-        // case WaveformType::WAVEFORM_PULSE:
-        //     this->phaseGenerator =  std::make_unique<PulsePhaseGenerator>(this->dcw);
-        //     break;
+        case WaveformType::WAVEFORM_PULSE:
+            this->phaseGenerator =  std::make_unique<PulsePhaseGenerator>(this->dcw);
+            break;
         // case WAVEFORM_DOUBLE_SINE:
         //     break;
         // case WAVEFORM_SAW_PULSE:
@@ -120,9 +123,9 @@ void PD::setWaveform(int8 waveformIndex){
     this->phaseGenerator->setDcw(this->dcw);
 }
 
-void PD::setDcw(void){
-    this->phaseGenerator->setDcw(this->dcw);
-}
+// void PD::setDcw(void){
+//     this->phaseGenerator->setDcw(this->dcw);
+// }
 
 void PD::setDcw(ParamValue dcw){
     this->dcw = dcw;
