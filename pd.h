@@ -11,7 +11,7 @@ namespace Vst {
 
 class AbstractPhaseGenerator{
     protected:
-        static constexpr double DCW_CORRECT_COEF = 0.9;
+        static constexpr double DCW_CORRECT_COEF = 0.95;
     public:
         virtual void setDcw(double) = 0;
         virtual double getPhase(double) = 0;
@@ -25,8 +25,8 @@ class SawToothPhaseGenerator: public AbstractPhaseGenerator{
     public:
         SawToothPhaseGenerator();
         SawToothPhaseGenerator(double);
-        virtual void setDcw(double);
-        virtual double getPhase(double);
+        virtual void setDcw(double) override;
+        virtual double getPhase(double) override;
 };
 
 class SquarePhaseGenerator: public AbstractPhaseGenerator{
@@ -37,8 +37,8 @@ class SquarePhaseGenerator: public AbstractPhaseGenerator{
     public:
         SquarePhaseGenerator();
         SquarePhaseGenerator(double);
-        virtual void setDcw(double);
-        virtual double getPhase(double);
+        virtual void setDcw(double) override;
+        virtual double getPhase(double) override;
 };
 
 class PulsePhaseGenerator: public AbstractPhaseGenerator{
@@ -49,8 +49,8 @@ class PulsePhaseGenerator: public AbstractPhaseGenerator{
     public:
         PulsePhaseGenerator();
         PulsePhaseGenerator(double);
-        virtual void setDcw(double);
-        virtual double getPhase(double);
+        virtual void setDcw(double) override;
+        virtual double getPhase(double) override;
 };
 
 // class DoubleSinePhaseGenerator: public AbstractPhaseGenerator{
@@ -101,24 +101,13 @@ class PulsePhaseGenerator: public AbstractPhaseGenerator{
 
 class PD{
     private:
-        WaveformType waveform;
+        Waveform waveform;
         ParamValue dcw;
         double phasetime;
-
-        SawToothPhaseGenerator sawToothPhaseGenerator;
-        SquarePhaseGenerator squarePhaseGenerator;
-        PulsePhaseGenerator pulsePhaseGenerator;
-        // DoubleSinePhaseGenerator doubleSinePhaseGenerator;
-        // SawPlusePhaseGenerator sawPulsePhaseGenerator;
-        // ResonanceSawToothPhaseGenerator resonanceSawToothPhaseGenerator;
-        // ResonanceTrianglePhaseGenerator resonanceTrianglePhaseGenerator;
-        // ResonanceTrapezoidPhaseGenerator resonanceTrapezoidPhaseGenerator;
-        // AbstractPhaseGenerator* phaseGenerator;
         std::unique_ptr<AbstractPhaseGenerator> phaseGenerator;
     public:
         PD();
         virtual void setWaveform(int8);
-        // virtual void setDcw(void);
         virtual void setDcw(ParamValue);
         virtual double generate(double);
 };

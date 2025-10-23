@@ -33,7 +33,7 @@ class NoteFreqTuple {
 
 
 class PDProcessor: public AudioEffect {
-    protected:
+    private:
         ParamValue volume;
         vector<NoteFreqTuple> noteFreqListPressed;
         PD pd;

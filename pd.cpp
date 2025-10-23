@@ -88,44 +88,38 @@ double PulsePhaseGenerator::getPhase(double phasetime){
 
 
 PD::PD():
-    waveform(WaveformType::WAVEFORM_SAWTOOTH),
+    waveform(Waveform::SAWTOOTH),
     dcw(0.0),
     phasetime(0.0),
-    sawToothPhaseGenerator(this->dcw),
-    phaseGenerator(std::make_unique<SawToothPhaseGenerator>(this->dcw)){
+    phaseGenerator(std::make_unique<SawToothPhaseGenerator>(dcw)){
 }
 
 void PD::setWaveform(int8 waveformIndex){
-    this->waveform = static_cast<WaveformType>(waveformIndex);
+    this->waveform = static_cast<Waveform>(waveformIndex);
     switch(this->waveform){
-        case WaveformType::WAVEFORM_SAWTOOTH:
+        case Waveform::SAWTOOTH:
             this->phaseGenerator = std::make_unique<SawToothPhaseGenerator>(this->dcw);
             break;
-        case WaveformType::WAVEFORM_SQUARE:
+        case Waveform::SQUARE:
             this->phaseGenerator = std::make_unique<SquarePhaseGenerator>(this->dcw);
             break;
-        case WaveformType::WAVEFORM_PULSE:
-            this->phaseGenerator =  std::make_unique<PulsePhaseGenerator>(this->dcw);
+        case Waveform::PULSE:
+            this->phaseGenerator = std::make_unique<PulsePhaseGenerator>(this->dcw);
             break;
-        // case WAVEFORM_DOUBLE_SINE:
-        //     break;
-        // case WAVEFORM_SAW_PULSE:
-        //     break;
-        // case WAVEFORM_RESONANCE_I_SAWTOOTH:
-        //     break;
-        // case WAVRFORM_RESONANCE_II_TRIANGLE:
-        //     break;
-        // case WAVEFORM_RESONANCE_III_TRAPEZOID:
-        //     break;
+        case Waveform::DOUBLE_SINE:
+            break;
+        case Waveform::SAW_PULSE:
+            break;
+        case Waveform::RESONANCE_SAWTOOTH:
+            break;
+        case Waveform::RESONANCE_TRIANGLE:
+            break;
+        case Waveform::RESONANCE_TRAPEZOID:
+            break;
         default:  // never reached
             break;
     }
-    this->phaseGenerator->setDcw(this->dcw);
 }
-
-// void PD::setDcw(void){
-//     this->phaseGenerator->setDcw(this->dcw);
-// }
 
 void PD::setDcw(ParamValue dcw){
     this->dcw = dcw;

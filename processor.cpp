@@ -53,7 +53,6 @@ void PDProcessor::processParameter(ProcessData& data){
         return;
     }
 
-    // int8 paramChangeCount = data.inputParameterChanges->getParameterCount();
     int32 sampleOffset;
     ParamValue value;
 
@@ -65,15 +64,14 @@ void PDProcessor::processParameter(ProcessData& data){
         if(queue->getPoint(queue->getPointCount()-1, sampleOffset, value) == kResultFalse){
             continue;
         }
+
         switch(queue->getParameterId()){
             case PARAM_ID_VOLUME:
                 this->volume = value;
                 break;
             case PARAM_ID_WAVEFORM:
                 this->pd.setWaveform(
-                    static_cast<int8>(
-                        value * static_cast<int8>(WaveformType::N_WAVEFORMS) + EPSILON
-                    )
+                    static_cast<int8>(value * static_cast<int8>(Waveform::N_WAVEFORMS) + EPSILON)
                 );
                 break;
             case PARAM_ID_DCW:
@@ -116,7 +114,7 @@ void PDProcessor::onNoteOn(int channel, int note, float velocity){
 }
 
 void PDProcessor::onNoteOff(int channel, int note, float velocity){
-    for(int16 i = 0; i < this->noteFreqListPressed.size(); i++){
+    for(int16 i = this->noteFreqListPressed.size()-1; i >= 0; i--){
         if(this->noteFreqListPressed[i].isSameNote(note)){
             this->noteFreqListPressed.erase(this->noteFreqListPressed.begin()+i);
         }
