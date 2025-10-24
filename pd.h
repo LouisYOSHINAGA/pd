@@ -53,14 +53,19 @@ class PulsePhaseGenerator: public AbstractPhaseGenerator{
         virtual double getPhase(double) override;
 };
 
-// class DoubleSinePhaseGenerator: public AbstractPhaseGenerator{
-//     private:
-//         // TODO: impl
-//     public:
-//         DoubleSinePhaseGenerator(double);
-//         virtual void setDcw(double);
-//         virtual double getPhase(double);
-// };
+class DoubleSinePhaseGenerator: public AbstractPhaseGenerator{
+    private:
+        bool isSecondCycle;
+        double doublePhasetime;
+        double breakpoint;
+        double slopeLeft;
+        double slopeRight;
+    public:
+        DoubleSinePhaseGenerator();
+        DoubleSinePhaseGenerator(double);
+        virtual void setDcw(double) override;
+        virtual double getPhase(double) override;
+};
 
 // class SawPlusePhaseGenerator: public AbstractPhaseGenerator{
 //     private:
