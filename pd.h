@@ -55,8 +55,6 @@ class PulsePhaseGenerator: public AbstractPhaseGenerator{
 
 class DoubleSinePhaseGenerator: public AbstractPhaseGenerator{
     private:
-        bool isSecondCycle;
-        double doublePhasetime;
         double breakpoint;
         double slopeLeft;
         double slopeRight;
