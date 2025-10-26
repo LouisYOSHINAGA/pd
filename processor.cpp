@@ -42,22 +42,22 @@ tresult PLUGIN_API PDProcessor::setBusArrangements(SpeakerArrangement* inputs, i
 }
 
 tresult PLUGIN_API PDProcessor::process(ProcessData& data){
-    processParameter(data);
+    processParameter(data.inputParameterChanges);
     processEvent(data.inputEvents);
     processReplacing(data);
     return kResultTrue;
 }
 
-void PDProcessor::processParameter(ProcessData& data){
-    if(data.inputParameterChanges == NULL){
+void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
+    if(iParamChanges == NULL){
         return;
     }
 
     int32 sampleOffset;
     ParamValue value;
 
-    for(int8 i = 0; i < data.inputParameterChanges->getParameterCount(); i++){
-        IParamValueQueue* queue = data.inputParameterChanges->getParameterData(i);
+    for(int8 i = 0; i < iParamChanges->getParameterCount(); i++){
+        IParamValueQueue* queue = iParamChanges->getParameterData(i);
         if(queue == nullptr){
             continue;
         }
@@ -84,7 +84,7 @@ void PDProcessor::processParameter(ProcessData& data){
     }
 }
 
-void PDProcessor::processEvent(IEventList* eventList){
+void PDProcessor::processEvent(IEventList* const& eventList){
     if(eventList == nullptr){
         return;
     }

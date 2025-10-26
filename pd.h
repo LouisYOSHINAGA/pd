@@ -23,7 +23,7 @@ class SawToothPhaseGenerator: public AbstractPhaseGenerator{
         double slopeLeft;
         double slopeRight;
     public:
-        SawToothPhaseGenerator();
+        SawToothPhaseGenerator() = delete;
         SawToothPhaseGenerator(double);
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;
@@ -35,7 +35,7 @@ class SquarePhaseGenerator: public AbstractPhaseGenerator{
         double slopeLeft;
         double slopeRight;
     public:
-        SquarePhaseGenerator();
+        SquarePhaseGenerator() = delete;
         SquarePhaseGenerator(double);
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;
@@ -47,7 +47,7 @@ class PulsePhaseGenerator: public AbstractPhaseGenerator{
         double slopeLeft;
         double slopeRight;
     public:
-        PulsePhaseGenerator();
+        PulsePhaseGenerator() = delete;
         PulsePhaseGenerator(double);
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;
@@ -59,7 +59,7 @@ class DoubleSinePhaseGenerator: public AbstractPhaseGenerator{
         double slopeLeft;
         double slopeRight;
     public:
-        DoubleSinePhaseGenerator();
+        DoubleSinePhaseGenerator() = delete;
         DoubleSinePhaseGenerator(double);
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;

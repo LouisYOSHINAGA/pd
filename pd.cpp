@@ -10,9 +10,6 @@ namespace Steinberg {
 namespace Vst {
 
 
-SawToothPhaseGenerator::SawToothPhaseGenerator(){
-}
-
 SawToothPhaseGenerator::SawToothPhaseGenerator(double dcw){
     this->setDcw(dcw);
 }
@@ -28,13 +25,10 @@ double SawToothPhaseGenerator::getPhase(double phasetime){
     if(phasetime < this->breakpoint){
         return this->slopeLeft * phasetime;
     }else{
-        return this->slopeRight * (phasetime - this->breakpoint) + M_PI;
+        return M_PI + this->slopeRight * (phasetime - this->breakpoint);
     }
 }
 
-
-SquarePhaseGenerator::SquarePhaseGenerator(){
-}
 
 SquarePhaseGenerator::SquarePhaseGenerator(double dcw){
     this->setDcw(dcw);
@@ -60,9 +54,6 @@ double SquarePhaseGenerator::getPhase(double phasetime){
 }
 
 
-PulsePhaseGenerator::PulsePhaseGenerator(){
-}
-
 PulsePhaseGenerator::PulsePhaseGenerator(double dcw){
     this->setDcw(dcw);
 }
@@ -87,9 +78,6 @@ double PulsePhaseGenerator::getPhase(double phasetime){
 }
 
 
-DoubleSinePhaseGenerator::DoubleSinePhaseGenerator(){
-}
-
 DoubleSinePhaseGenerator::DoubleSinePhaseGenerator(double dcw){
     this->setDcw(dcw);
 }
@@ -105,7 +93,7 @@ double DoubleSinePhaseGenerator::getPhase(double phasetime){
     if(phasetime < this->breakpoint){
         return this->slopeLeft * phasetime;
     }else{
-        return this->slopeRight * (phasetime - this->breakpoint) + 2 * M_PI;
+        return 2 * M_PI + this->slopeRight * (phasetime - this->breakpoint);
     }
 }
 

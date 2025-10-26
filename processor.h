@@ -44,8 +44,8 @@ class PDProcessor: public AudioEffect {
         tresult PLUGIN_API initialize(FUnknown*);
         tresult PLUGIN_API setBusArrangements(SpeakerArrangement*, int32, SpeakerArrangement*, int32);
         tresult PLUGIN_API process(ProcessData&);
-        virtual void processParameter(ProcessData&);
-        virtual void processEvent(IEventList*);
+        virtual void processParameter(IParameterChanges* const&);
+        virtual void processEvent(IEventList* const&);
         virtual void processReplacing(ProcessData&);
         virtual void onNoteOn(int, int, float);
         virtual void onNoteOff(int, int, float);
