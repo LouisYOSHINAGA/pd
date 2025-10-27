@@ -65,14 +65,17 @@ class DoubleSinePhaseGenerator: public AbstractPhaseGenerator{
         virtual double getPhase(double) override;
 };
 
-// class SawPlusePhaseGenerator: public AbstractPhaseGenerator{
-//     private:
-//         // TODO: impl
-//     public:
-//         SawPlusePhaseGenerator(double);
-//         virtual void setDcw(double);
-//         virtual double getPhase(double);
-// };
+class SawPlusePhaseGenerator: public AbstractPhaseGenerator{
+    private:
+        double breakpoint;
+        double slopeLeft;
+        double slopeRight;
+    public:
+        SawPlusePhaseGenerator() = delete;
+        SawPlusePhaseGenerator(double);
+        virtual void setDcw(double) override;
+        virtual double getPhase(double) override;
+};
 
 // class ResonanceSawToothPhaseGenerator: public AbstractPhaseGenerator{
 //     private:

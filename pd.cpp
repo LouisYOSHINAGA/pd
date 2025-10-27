@@ -98,6 +98,28 @@ double DoubleSinePhaseGenerator::getPhase(double phasetime){
 }
 
 
+SawPlusePhaseGenerator::SawPlusePhaseGenerator(double dcw){
+    this->setDcw(dcw);
+}
+
+void SawPlusePhaseGenerator::setDcw(double dcw){
+    double corrDcw = DCW_CORRECT_COEF * dcw;
+    this->breakpoint = M_PI * (1 - corrDcw);
+    this->slopeLeft = (M_PI - PHASE_EPSILON) / (M_PI * (1 - corrDcw));
+    this->slopeRight = PHASE_EPSILON / (1 + corrDcw);
+}
+
+double SawPlusePhaseGenerator::getPhase(double phasetime){
+    if(phasetime < M_PI){
+        return phasetime;
+    }else if(M_PI <= phasetime && phasetime < M_PI + this->breakpoint){
+        return M_PI + this->slopeLeft * (phasetime - M_PI);
+    }else{
+        return (2 * M_PI - PHASE_EPSILON) + this->slopeRight * (phasetime - this->breakpoint);
+    }
+}
+
+
 PD::PD():
     waveform(Waveform::SAWTOOTH),
     dcw(0.0),
@@ -121,6 +143,7 @@ void PD::setWaveform(int8 waveformIndex){
             this->phaseGenerator = std::make_unique<DoubleSinePhaseGenerator>(this->dcw);
             break;
         case Waveform::SAW_PULSE:
+            this->phaseGenerator = std::make_unique<SawPlusePhaseGenerator>(this->dcw);
             break;
         case Waveform::RESONANCE_SAWTOOTH:
             break;
