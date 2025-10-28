@@ -166,7 +166,7 @@ double PD::generate(double freq){
     if(this->phasetime >= 2 * M_PI){
         this->phasetime -= 2 * M_PI;
     }
-    return cos(this->phaseGenerator->getPhase(this->phasetime));
+    return - cos(this->phaseGenerator->getPhase(this->phasetime));
 }
 
 
