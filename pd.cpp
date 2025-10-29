@@ -125,6 +125,28 @@ double SawPulseGenerator::getPhase(double phasetime){
 }
 
 
+void AbstractResonanceGenerator::setDcw(double dcw){
+    this->highFreqPhaseCoef = 1 + MAX_FREQ_MULT * dcw;
+}
+
+double AbstractResonanceGenerator::getPhase(double phasetime){
+    return phasetime;
+}
+
+double AbstractResonanceGenerator::generate(double phasetime){
+    return this->getEnvelope(phasetime) * (- cos(this->highFreqPhaseCoef * phasetime) + 1) - 1;
+}
+
+
+ResonanceSawToothGenerator::ResonanceSawToothGenerator(double dcw){
+    this->setDcw(dcw);
+}
+
+double ResonanceSawToothGenerator::getEnvelope(double phasetime){
+    return 1 - phasetime / (2 * M_PI - PHASE_EPSILON);
+}
+
+
 PD::PD():
     waveform(Waveform::SAWTOOTH),
     dcw(0.0),
@@ -151,6 +173,7 @@ void PD::setWaveform(int8 waveformIndex){
             this->generator = std::make_unique<SawPulseGenerator>(this->dcw);
             break;
         case Waveform::RESONANCE_SAWTOOTH:
+            this->generator = std::make_unique<ResonanceSawToothGenerator>(this->dcw);
             break;
         case Waveform::RESONANCE_TRIANGLE:
             break;
