@@ -10,18 +10,23 @@ namespace Steinberg {
 namespace Vst {
 
 
-SawToothPhaseGenerator::SawToothPhaseGenerator(double dcw){
+double AbstractGenerator::generate(double phasetime){
+    return - cos(this->getPhase(phasetime));
+}
+
+
+SawToothGenerator::SawToothGenerator(double dcw){
     this->setDcw(dcw);
 }
 
-void SawToothPhaseGenerator::setDcw(double dcw){
+void SawToothGenerator::setDcw(double dcw){
     double corrDcw = DCW_CORRECT_COEF * dcw;
     this->breakpoint = M_PI * (1 - corrDcw);
     this->slopeLeft = 1 / (1 - corrDcw);
     this->slopeRight = 1 / (1 + corrDcw);
 }
 
-double SawToothPhaseGenerator::getPhase(double phasetime){
+double SawToothGenerator::getPhase(double phasetime){
     if(phasetime < this->breakpoint){
         return this->slopeLeft * phasetime;
     }else{
@@ -30,18 +35,18 @@ double SawToothPhaseGenerator::getPhase(double phasetime){
 }
 
 
-SquarePhaseGenerator::SquarePhaseGenerator(double dcw){
+SquareGenerator::SquareGenerator(double dcw){
     this->setDcw(dcw);
 }
 
-void SquarePhaseGenerator::setDcw(double dcw){
+void SquareGenerator::setDcw(double dcw){
     double corrDcw = DCW_CORRECT_COEF * dcw;
     this->breakpoint = M_PI * (1 - corrDcw);
     this->slopeLeft = (M_PI - PHASE_EPSILON) / (M_PI * (1 - corrDcw));
     this->slopeRight = PHASE_EPSILON / (M_PI * corrDcw);
 }
 
-double SquarePhaseGenerator::getPhase(double phasetime){
+double SquareGenerator::getPhase(double phasetime){
     if(phasetime < this->breakpoint){
         return this->slopeLeft * phasetime;
     }else if(this->breakpoint <= phasetime && phasetime < M_PI){
@@ -54,18 +59,18 @@ double SquarePhaseGenerator::getPhase(double phasetime){
 }
 
 
-PulsePhaseGenerator::PulsePhaseGenerator(double dcw){
+PulseGenerator::PulseGenerator(double dcw){
     this->setDcw(dcw);
 }
 
-void PulsePhaseGenerator::setDcw(double dcw){
+void PulseGenerator::setDcw(double dcw){
     double corrDcw = DCW_CORRECT_COEF * dcw;
     this->breakpoint = M_PI * corrDcw;
     this->slopeLeft = PHASE_EPSILON / (M_PI * corrDcw);
     this->slopeRight = (M_PI - PHASE_EPSILON) / (M_PI * (1 - corrDcw));
 }
 
-double PulsePhaseGenerator::getPhase(double phasetime){
+double PulseGenerator::getPhase(double phasetime){
     if(phasetime < this->breakpoint){
         return this->slopeLeft * phasetime;
     }else if(this->breakpoint <= phasetime && phasetime < M_PI){
@@ -78,18 +83,18 @@ double PulsePhaseGenerator::getPhase(double phasetime){
 }
 
 
-DoubleSinePhaseGenerator::DoubleSinePhaseGenerator(double dcw){
+DoubleSineGenerator::DoubleSineGenerator(double dcw){
     this->setDcw(dcw);
 }
 
-void DoubleSinePhaseGenerator::setDcw(double dcw){
+void DoubleSineGenerator::setDcw(double dcw){
     double corrDcw = DCW_CORRECT_COEF * dcw;
     this->breakpoint = M_PI * (1 - corrDcw);
     this->slopeLeft = 2 / (1 - corrDcw);
     this->slopeRight = 2 / (1 + corrDcw);
 }
 
-double DoubleSinePhaseGenerator::getPhase(double phasetime){
+double DoubleSineGenerator::getPhase(double phasetime){
     if(phasetime < this->breakpoint){
         return this->slopeLeft * phasetime;
     }else{
@@ -98,18 +103,18 @@ double DoubleSinePhaseGenerator::getPhase(double phasetime){
 }
 
 
-SawPlusePhaseGenerator::SawPlusePhaseGenerator(double dcw){
+SawPulseGenerator::SawPulseGenerator(double dcw){
     this->setDcw(dcw);
 }
 
-void SawPlusePhaseGenerator::setDcw(double dcw){
+void SawPulseGenerator::setDcw(double dcw){
     double corrDcw = DCW_CORRECT_COEF * dcw;
     this->breakpoint = M_PI * (1 - corrDcw);
     this->slopeLeft = (M_PI - PHASE_EPSILON) / (M_PI * (1 - corrDcw));
     this->slopeRight = PHASE_EPSILON / (1 + corrDcw);
 }
 
-double SawPlusePhaseGenerator::getPhase(double phasetime){
+double SawPulseGenerator::getPhase(double phasetime){
     if(phasetime < M_PI){
         return phasetime;
     }else if(M_PI <= phasetime && phasetime < M_PI + this->breakpoint){
@@ -124,26 +129,26 @@ PD::PD():
     waveform(Waveform::SAWTOOTH),
     dcw(0.0),
     phasetime(0.0),
-    phaseGenerator(std::make_unique<SawToothPhaseGenerator>(dcw)){
+    generator(std::make_unique<SawToothGenerator>(dcw)){
 }
 
 void PD::setWaveform(int8 waveformIndex){
     this->waveform = static_cast<Waveform>(waveformIndex);
     switch(this->waveform){
         case Waveform::SAWTOOTH:
-            this->phaseGenerator = std::make_unique<SawToothPhaseGenerator>(this->dcw);
+            this->generator = std::make_unique<SawToothGenerator>(this->dcw);
             break;
         case Waveform::SQUARE:
-            this->phaseGenerator = std::make_unique<SquarePhaseGenerator>(this->dcw);
+            this->generator = std::make_unique<SquareGenerator>(this->dcw);
             break;
         case Waveform::PULSE:
-            this->phaseGenerator = std::make_unique<PulsePhaseGenerator>(this->dcw);
+            this->generator = std::make_unique<PulseGenerator>(this->dcw);
             break;
         case Waveform::DOUBLE_SINE:
-            this->phaseGenerator = std::make_unique<DoubleSinePhaseGenerator>(this->dcw);
+            this->generator = std::make_unique<DoubleSineGenerator>(this->dcw);
             break;
         case Waveform::SAW_PULSE:
-            this->phaseGenerator = std::make_unique<SawPlusePhaseGenerator>(this->dcw);
+            this->generator = std::make_unique<SawPulseGenerator>(this->dcw);
             break;
         case Waveform::RESONANCE_SAWTOOTH:
             break;
@@ -158,7 +163,7 @@ void PD::setWaveform(int8 waveformIndex){
 
 void PD::setDcw(ParamValue dcw){
     this->dcw = dcw;
-    this->phaseGenerator->setDcw(this->dcw);
+    this->generator->setDcw(this->dcw);
 }
 
 double PD::generate(double freq){
@@ -166,7 +171,7 @@ double PD::generate(double freq){
     if(this->phasetime >= 2 * M_PI){
         this->phasetime -= 2 * M_PI;
     }
-    return - cos(this->phaseGenerator->getPhase(this->phasetime));
+    return this->generator->generate(this->phasetime);
 }
 
 

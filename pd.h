@@ -9,84 +9,68 @@ namespace Steinberg {
 namespace Vst {
 
 
-class AbstractPhaseGenerator{
+class AbstractGenerator{
     protected:
         static constexpr double DCW_CORRECT_COEF = 0.95;
+        double breakpoint;
+        double slopeLeft;
+        double slopeRight;
     public:
         virtual void setDcw(double) = 0;
         virtual double getPhase(double) = 0;
+        virtual double generate(double);
 };
 
-class SawToothPhaseGenerator: public AbstractPhaseGenerator{
-    private:
-        double breakpoint;
-        double slopeLeft;
-        double slopeRight;
+class SawToothGenerator: public AbstractGenerator{
     public:
-        SawToothPhaseGenerator() = delete;
-        SawToothPhaseGenerator(double);
+        SawToothGenerator() = delete;
+        SawToothGenerator(double);
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;
 };
 
-class SquarePhaseGenerator: public AbstractPhaseGenerator{
-    private:
-        double breakpoint;
-        double slopeLeft;
-        double slopeRight;
+class SquareGenerator: public AbstractGenerator{
     public:
-        SquarePhaseGenerator() = delete;
-        SquarePhaseGenerator(double);
+        SquareGenerator() = delete;
+        SquareGenerator(double);
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;
 };
 
-class PulsePhaseGenerator: public AbstractPhaseGenerator{
-    private:
-        double breakpoint;
-        double slopeLeft;
-        double slopeRight;
+class PulseGenerator: public AbstractGenerator{
     public:
-        PulsePhaseGenerator() = delete;
-        PulsePhaseGenerator(double);
+        PulseGenerator() = delete;
+        PulseGenerator(double);
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;
 };
 
-class DoubleSinePhaseGenerator: public AbstractPhaseGenerator{
-    private:
-        double breakpoint;
-        double slopeLeft;
-        double slopeRight;
+class DoubleSineGenerator: public AbstractGenerator{
     public:
-        DoubleSinePhaseGenerator() = delete;
-        DoubleSinePhaseGenerator(double);
+        DoubleSineGenerator() = delete;
+        DoubleSineGenerator(double);
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;
 };
 
-class SawPlusePhaseGenerator: public AbstractPhaseGenerator{
-    private:
-        double breakpoint;
-        double slopeLeft;
-        double slopeRight;
+class SawPulseGenerator: public AbstractGenerator{
     public:
-        SawPlusePhaseGenerator() = delete;
-        SawPlusePhaseGenerator(double);
+        SawPulseGenerator() = delete;
+        SawPulseGenerator(double);
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;
 };
 
-// class ResonanceSawToothPhaseGenerator: public AbstractPhaseGenerator{
+// class ResonanceSawToothGenerator: public AbstractGenerator{
 //     private:
 //         // TODO: impl
 //     public:
-//         ResonanceSawToothPhaseGenerator(double);
+//         ResonanceSawToothGenerator(double);
 //         virtual void setDcw(double);
 //         virtual double getPhase(double);
 // };
 
-// class ResonanceTrianglePhaseGenerator: public AbstractPhaseGenerator{
+// class ResonanceTrianglePhaseGenerator: public AbstractGenerator{
 //     private:
 //         // TODO: impl
 //     public:
@@ -95,7 +79,7 @@ class SawPlusePhaseGenerator: public AbstractPhaseGenerator{
 //         virtual double getPhase(double);
 // };
 
-// class ResonanceTrapezoidPhaseGenerator: public AbstractPhaseGenerator{
+// class ResonanceTrapezoidPhaseGenerator: public AbstractGenerator{
 //     private:
 //         // TODO: impl
 //     public:
@@ -110,7 +94,7 @@ class PD{
         Waveform waveform;
         ParamValue dcw;
         double phasetime;
-        std::unique_ptr<AbstractPhaseGenerator> phaseGenerator;
+        std::unique_ptr<AbstractGenerator> generator;
     public:
         PD();
         virtual void setWaveform(int8);
