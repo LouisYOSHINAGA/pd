@@ -147,6 +147,19 @@ double ResonanceSawToothGenerator::getEnvelope(double phasetime){
 }
 
 
+ResonanceTriangleGenerator::ResonanceTriangleGenerator(double dcw){
+    this->setDcw(dcw);
+}
+
+double ResonanceTriangleGenerator::getEnvelope(double phasetime){
+    if(phasetime < M_PI){
+        return PHASE_EPSILON + (1 - PHASE_EPSILON) / M_PI * phasetime;
+    }else{
+        return PHASE_EPSILON + 1 - (1 - PHASE_EPSILON) / M_PI * (phasetime - M_PI);
+    }
+}
+
+
 PD::PD():
     waveform(Waveform::SAWTOOTH),
     dcw(0.0),
@@ -176,6 +189,7 @@ void PD::setWaveform(int8 waveformIndex){
             this->generator = std::make_unique<ResonanceSawToothGenerator>(this->dcw);
             break;
         case Waveform::RESONANCE_TRIANGLE:
+            this->generator = std::make_unique<ResonanceTriangleGenerator>(this->dcw);
             break;
         case Waveform::RESONANCE_TRAPEZOID:
             break;

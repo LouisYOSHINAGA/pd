@@ -63,7 +63,7 @@ class SawPulseGenerator: public AbstractGenerator{
 
 class AbstractResonanceGenerator: public AbstractGenerator{
     protected:
-        static constexpr double MAX_FREQ_MULT = 15.0;
+        static constexpr double MAX_FREQ_MULT = 14.0;
         double highFreqPhaseCoef;
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;
@@ -78,14 +78,12 @@ class ResonanceSawToothGenerator: public AbstractResonanceGenerator{
         virtual double getEnvelope(double) override;
 };
 
-// class ResonanceTrianglePhaseGenerator: public AbstractGenerator{
-//     private:
-//         // TODO: impl
-//     public:
-//         ResonanceTrianglePhaseGenerator(double);
-//         virtual void setDcw(double);
-//         virtual double getPhase(double);
-// };
+class ResonanceTriangleGenerator: public AbstractResonanceGenerator{
+    public:
+        ResonanceTriangleGenerator() = delete;
+        ResonanceTriangleGenerator(double);
+        virtual double getEnvelope(double) override;
+};
 
 // class ResonanceTrapezoidPhaseGenerator: public AbstractGenerator{
 //     private:
