@@ -160,6 +160,19 @@ double ResonanceTriangleGenerator::getEnvelope(double phasetime){
 }
 
 
+ResonanceTrapezoidGenerator::ResonanceTrapezoidGenerator(double dcw){
+    this->setDcw(dcw);
+}
+
+double ResonanceTrapezoidGenerator::getEnvelope(double phasetime){
+    if(phasetime < M_PI){
+        return 1.0;
+    }else{
+        return 1 - (phasetime - M_PI) / (M_PI - PHASE_EPSILON);
+    }
+}
+
+
 PD::PD():
     waveform(Waveform::SAWTOOTH),
     dcw(0.0),
@@ -192,6 +205,7 @@ void PD::setWaveform(int8 waveformIndex){
             this->generator = std::make_unique<ResonanceTriangleGenerator>(this->dcw);
             break;
         case Waveform::RESONANCE_TRAPEZOID:
+            this->generator = std::make_unique<ResonanceTrapezoidGenerator>(this->dcw);
             break;
         default:  // never reached
             break;

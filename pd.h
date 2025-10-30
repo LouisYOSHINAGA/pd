@@ -85,14 +85,12 @@ class ResonanceTriangleGenerator: public AbstractResonanceGenerator{
         virtual double getEnvelope(double) override;
 };
 
-// class ResonanceTrapezoidPhaseGenerator: public AbstractGenerator{
-//     private:
-//         // TODO: impl
-//     public:
-//         ResonanceTrapezoidPhaseGenerator(double);
-//         virtual void setDcw(double);
-//         virtual double getPhase(double);
-// };
+class ResonanceTrapezoidGenerator: public AbstractResonanceGenerator{
+    public:
+        ResonanceTrapezoidGenerator() = delete;
+        ResonanceTrapezoidGenerator(double);
+        virtual double getEnvelope(double) override;
+};
 
 
 class PD{
