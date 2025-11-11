@@ -65,7 +65,8 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
             continue;
         }
 
-        switch(queue->getParameterId()){
+        int32 paramId = queue->getParameterId();
+        switch(paramId){
             case PARAM_ID_VOLUME:
                 this->volume = value;
                 break;
@@ -76,6 +77,26 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
                 break;
             case PARAM_ID_DCW:
                 this->pd.setDcw(value);
+                break;
+            case PARAM_ID_DCA_EG_RATE_1:
+            case PARAM_ID_DCA_EG_RATE_2:
+            case PARAM_ID_DCA_EG_RATE_3:
+            case PARAM_ID_DCA_EG_RATE_4:
+            case PARAM_ID_DCA_EG_RATE_5:
+            case PARAM_ID_DCA_EG_RATE_6:
+            case PARAM_ID_DCA_EG_RATE_7:
+            case PARAM_ID_DCA_EG_RATE_8:
+                this->pd.setDcaRate(paramId-PARAM_ID_DCA_EG_RATE_1, value);
+                break;
+            case PARAM_ID_DCA_EG_LVL_1:
+            case PARAM_ID_DCA_EG_LVL_2:
+            case PARAM_ID_DCA_EG_LVL_3:
+            case PARAM_ID_DCA_EG_LVL_4:
+            case PARAM_ID_DCA_EG_LVL_5:
+            case PARAM_ID_DCA_EG_LVL_6:
+            case PARAM_ID_DCA_EG_LVL_7:
+            case PARAM_ID_DCA_EG_LVL_8:
+                this->pd.setDcaLevel(paramId-PARAM_ID_DCA_EG_LVL_1, value);
                 break;
             default:
                 // do nothing

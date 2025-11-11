@@ -3,6 +3,7 @@
 #include <memory>
 #include "pluginterfaces/vst/vsttypes.h"
 #include "const.h"
+#include "eg.h"
 
 
 namespace Steinberg {
@@ -99,6 +100,7 @@ class PD{
         ParamValue dcw;
         double phasetime;
         std::unique_ptr<AbstractGenerator> generator;
+        EgParam dcaEg;
     public:
         PD();
         virtual void setWaveform(int8);
@@ -106,6 +108,8 @@ class PD{
         virtual double generate(double);
 
         virtual void initEg(void);
+        virtual void setDcaRate(int32, ParamValue);
+        virtual void setDcaLevel(int32, ParamValue);
 };
 
 

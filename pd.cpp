@@ -225,5 +225,17 @@ double PD::generate(double freq){
     return this->generator->generate(this->phasetime);
 }
 
+void PD::initEg(void){
+    // TODO
+}
+
+void PD::setDcaRate(int32 index, ParamValue rate){
+    this->dcaEg.setRate(index, rate);
+}
+
+void PD::setDcaLevel(int32 index, ParamValue level){
+    this->dcaEg.setLevel(index, level);
+}
+
 
 } }
