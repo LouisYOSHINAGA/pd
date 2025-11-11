@@ -104,6 +104,8 @@ class PD{
         virtual void setWaveform(int8);
         virtual void setDcw(ParamValue);
         virtual double generate(double);
+
+        virtual void initEg(void);
 };
 
 

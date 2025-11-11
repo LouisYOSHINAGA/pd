@@ -111,6 +111,7 @@ void PDProcessor::processEvent(IEventList* const& eventList){
 
 void PDProcessor::onNoteOn(int channel, int note, float velocity){
     this->noteFreqListPressed.push_back(NoteFreqTuple(note));
+    this->pd.initEg();
 }
 
 void PDProcessor::onNoteOff(int channel, int note, float velocity){
