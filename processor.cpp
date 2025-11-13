@@ -86,8 +86,9 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
             case PARAM_ID_DCA_EG_RATE_6:
             case PARAM_ID_DCA_EG_RATE_7:
             case PARAM_ID_DCA_EG_RATE_8:
-                this->pd.setDcaRate(paramId-PARAM_ID_DCA_EG_RATE_1, value);
+                this->pd.setDcaRate(paramId-PARAM_ID_DCA_EG_RATE_1+1, value);
                 break;
+            case PARAM_ID_DCA_EG_LVL_0:
             case PARAM_ID_DCA_EG_LVL_1:
             case PARAM_ID_DCA_EG_LVL_2:
             case PARAM_ID_DCA_EG_LVL_3:
@@ -96,7 +97,7 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
             case PARAM_ID_DCA_EG_LVL_6:
             case PARAM_ID_DCA_EG_LVL_7:
             case PARAM_ID_DCA_EG_LVL_8:
-                this->pd.setDcaLevel(paramId-PARAM_ID_DCA_EG_LVL_1, value);
+                this->pd.setDcaLevel(paramId-PARAM_ID_DCA_EG_LVL_0, value);
                 break;
             default:
                 // do nothing
@@ -132,7 +133,7 @@ void PDProcessor::processEvent(IEventList* const& eventList){
 
 void PDProcessor::onNoteOn(int channel, int note, float velocity){
     this->noteFreqListPressed.push_back(NoteFreqTuple(note));
-    this->pd.initEg();
+    this->pd.setupEg();
 }
 
 void PDProcessor::onNoteOff(int channel, int note, float velocity){

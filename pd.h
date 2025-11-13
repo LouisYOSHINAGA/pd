@@ -107,7 +107,7 @@ class PD{
         virtual void setDcw(ParamValue);
         virtual double generate(double);
 
-        virtual void initEg(void);
+        virtual void setupEg(void);
         virtual void setDcaRate(int32, ParamValue);
         virtual void setDcaLevel(int32, ParamValue);
 };

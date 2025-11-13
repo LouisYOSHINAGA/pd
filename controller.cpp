@@ -48,6 +48,8 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context){
 
     // DCA EG
     Parameter* param;
+    param = new Parameter(STR16("DCA EG Lvl 0"), PARAM_ID_DCA_EG_LVL_0);
+    parameters.addParameter(param);
     param = new Parameter(STR16("DCA EG Rate 1"), PARAM_ID_DCA_EG_RATE_1);
     parameters.addParameter(param);
     param = new Parameter(STR16("DCA EG Lvl 1"), PARAM_ID_DCA_EG_LVL_1);

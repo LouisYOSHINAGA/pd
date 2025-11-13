@@ -222,11 +222,11 @@ double PD::generate(double freq){
     if(this->phasetime >= 2 * M_PI){
         this->phasetime -= 2 * M_PI;
     }
-    return this->generator->generate(this->phasetime);
+    return this->dcaEg.generate() * this->generator->generate(this->phasetime);
 }
 
-void PD::initEg(void){
-    // TODO
+void PD::setupEg(void){
+    this->dcaEg.setup();
 }
 
 void PD::setDcaRate(int32 index, ParamValue rate){
