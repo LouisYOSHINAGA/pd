@@ -83,6 +83,35 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context){
     param = new Parameter(STR16("DCA EG Lvl 8"), PARAM_ID_DCA_EG_LVL_8);
     parameters.addParameter(param);
 
+    // DCA EG Sustain Point
+    StringListParameter* sustain_point = new StringListParameter(
+        STR16("DCA EG Sustain Point"),  // title
+        PARAM_ID_DCA_EG_SUSTAIN_POINT  // tag
+
+    );
+    sustain_point->appendString(STR16("Off"));
+    sustain_point->appendString(STR16("1"));
+    sustain_point->appendString(STR16("2"));
+    sustain_point->appendString(STR16("3"));
+    sustain_point->appendString(STR16("4"));
+    sustain_point->appendString(STR16("5"));
+    sustain_point->appendString(STR16("6"));
+    sustain_point->appendString(STR16("7"));
+    parameters.addParameter(sustain_point);
+
+    // DCA EG End Point
+    StringListParameter* end_point = new StringListParameter(
+        STR16("DCA EG End Point"),  // title
+        PARAM_ID_DCA_EG_END_POINT  // tag
+    );
+    end_point->appendString(STR16("2"));
+    end_point->appendString(STR16("3"));
+    end_point->appendString(STR16("4"));
+    end_point->appendString(STR16("5"));
+    end_point->appendString(STR16("6"));
+    end_point->appendString(STR16("7"));
+    end_point->appendString(STR16("8"));
+    parameters.addParameter(end_point);
 
     // add initialize here if needed
 

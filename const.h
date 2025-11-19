@@ -4,6 +4,9 @@
 #define SAMPLING_RATE 44100
 #define EPSILON 0.00001
 
+#define N_OPT_EG_SUSTAIN_POINT 8
+#define N_OPT_EG_END_POINT 7
+
 
 typedef enum{
     PARAM_ID_VOLUME,
@@ -28,6 +31,8 @@ typedef enum{
     PARAM_ID_DCA_EG_LVL_6,
     PARAM_ID_DCA_EG_LVL_7,
     PARAM_ID_DCA_EG_LVL_8,
+    PARAM_ID_DCA_EG_SUSTAIN_POINT,
+    PARAM_ID_DCA_EG_END_POINT,
 
     N_PARAMS
 } ParamID;

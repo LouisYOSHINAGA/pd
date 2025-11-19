@@ -110,6 +110,9 @@ class PD{
         virtual void setupEg(void);
         virtual void setDcaRate(int32, ParamValue);
         virtual void setDcaLevel(int32, ParamValue);
+        virtual void setDcaSustainPoint(int8);
+        virtual void setDcaEndPoint(int8);
+        virtual void restartEg(void);
 };
 
 

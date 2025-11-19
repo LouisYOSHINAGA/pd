@@ -99,6 +99,16 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
             case PARAM_ID_DCA_EG_LVL_8:
                 this->pd.setDcaLevel(paramId-PARAM_ID_DCA_EG_LVL_0, value);
                 break;
+            case PARAM_ID_DCA_EG_SUSTAIN_POINT:
+                this->pd.setDcaSustainPoint(
+                    static_cast<int8>(value * N_OPT_EG_SUSTAIN_POINT + EPSILON)
+                );
+                break;
+            case PARAM_ID_DCA_EG_END_POINT:
+                this->pd.setDcaEndPoint(
+                    static_cast<int8>(value * N_OPT_EG_END_POINT + EPSILON)
+                );
+                break;
             default:
                 // do nothing
                 break;
@@ -140,6 +150,7 @@ void PDProcessor::onNoteOff(int channel, int note, float velocity){
     for(int16 i = this->noteFreqListPressed.size()-1; i >= 0; i--){
         if(this->noteFreqListPressed[i].isSameNote(note)){
             this->noteFreqListPressed.erase(this->noteFreqListPressed.begin()+i);
+            this->pd.restartEg();
         }
     }
 }

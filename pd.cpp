@@ -237,5 +237,17 @@ void PD::setDcaLevel(int32 index, ParamValue level){
     this->dcaEg.setLevel(index, level);
 }
 
+void PD::setDcaSustainPoint(int8 point){
+    this->dcaEg.setSustainPoint(point);
+}
+
+void PD::setDcaEndPoint(int8 point){
+    this->dcaEg.setEndPoint(point);
+}
+
+void PD::restartEg(void){
+    this->dcaEg.restart();
+}
+
 
 } }
