@@ -24,6 +24,7 @@ class AbstractEG{
         double level;
         double dLevel;
         double target;
+        virtual double rateToSample(double);
         virtual void proceed(int8) = 0;
         virtual void update(void);
     public:
@@ -33,8 +34,8 @@ class AbstractEG{
         virtual void setSustainPoint(int8);
         virtual void setEndPoint(int8);
         virtual void setup(void);
-        virtual double generate(void);
         virtual void restart(void);
+        virtual double generate(void);
 };
 
 

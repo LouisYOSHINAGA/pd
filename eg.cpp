@@ -33,9 +33,21 @@ void AbstractEG::setEndPoint(int8 point){
     this->endPoint = EG_END_POINT_OFFSET + point;
 }
 
+double AbstractEG::rateToSample(double rate){
+    return 5 * (1.0 - rate) * SAMPLING_RATE + 100;  // TODO: temp impl
+}
+
 void AbstractEG::setup(void){
     this->level = this->levels[0];
     this->proceed(0);
+}
+
+void AbstractEG::restart(void){
+    if(this->sustainPoint + 1 >= this->endPoint){
+        return;
+    }
+    this->step = this->sustainPoint + 1;
+    this->dLevel = (this->target - this->level) / this->rateToSample(this->rates[this->step]);
 }
 
 void AbstractEG::update(void){
@@ -50,15 +62,6 @@ void AbstractEG::update(void){
     }
 }
 
-void AbstractEG::restart(void){
-    if(this->sustainPoint + 1 >= this->endPoint){
-        return;
-    }
-    this->step = this->sustainPoint + 1;
-    double dSample = 5 * (1.0 - this->rates[this->step]) * SAMPLING_RATE + 10;  // TODO: temp impl
-    this->dLevel = (this->levels[this->step] - this->levels[this->step-1]) / dSample;
-}
-
 double AbstractEG::generate(void){
     double level = this->level;
     this->update();
@@ -71,18 +74,18 @@ ZeroEndEG::ZeroEndEG(){
 
 void ZeroEndEG::proceed(int8 step){
     if(step == this->sustainPoint){
+        this->target = this->levels[this->sustainPoint+1];  // next target level (after sustain)
         this->dLevel = 0;
         this->step = EG_STEP_SUSTAIN;
         return;
     }
 
     if(step == this->endPoint - 1){
-        this->target = 0;  // DCA target level in end point must be 0
+        this->target = 0;  // target level at end point must be 0
     }else{
         this->target = this->levels[step+1];
     }
-    double dSample = 5 * (1.0 - this->rates[step+1]) * SAMPLING_RATE + 10;  // TODO: temp impl
-    this->dLevel = (this->target - this->level) / dSample;
+    this->dLevel = (this->target - this->level) / this->rateToSample(this->rates[step+1]);
     this->step = step + 1;
 }
 
