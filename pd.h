@@ -100,7 +100,7 @@ class PD{
         ParamValue dcw;
         double phasetime;
         std::unique_ptr<AbstractGenerator> generator;
-        EgParam dcaEg;
+        ZeroEndEG dcaEg;
     public:
         PD();
         virtual void setWaveform(int8);
