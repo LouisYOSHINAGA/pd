@@ -36,6 +36,7 @@ class PDProcessor: public AudioEffect {
     private:
         ParamValue volume;
         vector<NoteFreqTuple> noteFreqListPressed;
+        NoteFreqTuple* noteFreqReleased;
         PD pd;
     public:
         static FUnknown* createInstance(void*);

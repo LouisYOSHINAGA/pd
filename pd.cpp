@@ -217,12 +217,12 @@ void PD::setDcw(ParamValue dcw){
     this->generator->setDcw(this->dcw);
 }
 
-double PD::generate(double freq){
+double PD::generate(double freq, bool& isDcaEnd){
     this->phasetime += 2 * M_PI * freq / SAMPLING_RATE;
     if(this->phasetime >= 2 * M_PI){
         this->phasetime -= 2 * M_PI;
     }
-    return this->dcaEg.generate() * this->generator->generate(this->phasetime);
+    return this->dcaEg.generate(isDcaEnd) * this->generator->generate(this->phasetime);
 }
 
 void PD::setupEg(void){

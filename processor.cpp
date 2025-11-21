@@ -22,6 +22,7 @@ PDProcessor::PDProcessor(){
 void PDProcessor::initializeParameter(void){
     this->volume = 0.8;
     this->noteFreqListPressed.clear();
+    this->noteFreqReleased = nullptr;
     this->pd = PD();
 }
 
@@ -150,8 +151,11 @@ void PDProcessor::onNoteOff(int channel, int note, float velocity){
     for(int16 i = this->noteFreqListPressed.size()-1; i >= 0; i--){
         if(this->noteFreqListPressed[i].isSameNote(note)){
             this->noteFreqListPressed.erase(this->noteFreqListPressed.begin()+i);
-            this->pd.restartEg();
         }
+    }
+    if(this->noteFreqListPressed.size() == 0){  // last note off
+        this->noteFreqReleased = new NoteFreqTuple(note);
+        this->pd.restartEg();
     }
 }
 
@@ -160,13 +164,13 @@ void PDProcessor::processReplacing(ProcessData& data){
     Sample32* outL = data.outputs[0].channelBuffers32[0];
     Sample32* outR = data.outputs[0].channelBuffers32[1];
 
-    if(this->noteFreqListPressed.size() == 0){  // no sound
-        memset(outL, 0.0, sizeof(Sample32)*data.numSamples);
-        memset(outR, 0.0, sizeof(Sample32)*data.numSamples);
-        return;
-    }
-
     for(int32 i = 0; i < data.numSamples; i++){
+        if(this->noteFreqListPressed.size() == 0 && this->noteFreqReleased == nullptr){  // no sound
+            memset(outL+i, 0.0, sizeof(Sample32)*(data.numSamples-i));
+            memset(outR+i, 0.0, sizeof(Sample32)*(data.numSamples-i));
+            return;
+        }
+
         double value = this->generate();
         outL[i] = value;
         outR[i] = value;
@@ -174,8 +178,20 @@ void PDProcessor::processReplacing(ProcessData& data){
 }
 
 double PDProcessor::generate(void){
-    double freq = this->noteFreqListPressed[this->noteFreqListPressed.size()-1].getFreq();
-    return this->volume * this->pd.generate(freq);
+    double freq;
+    bool isDcaEnd = false;
+
+    if(this->noteFreqListPressed.size() > 0){
+        freq = this->noteFreqListPressed[this->noteFreqListPressed.size()-1].getFreq();
+    }else{
+        freq = this->noteFreqReleased->getFreq();
+    }
+
+    double out = this->volume * this->pd.generate(freq, isDcaEnd);
+    if(isDcaEnd){
+        this->noteFreqReleased = nullptr;
+    }
+    return out;
 }
 
 

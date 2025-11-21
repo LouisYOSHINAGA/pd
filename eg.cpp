@@ -43,11 +43,11 @@ void AbstractEG::setup(void){
 }
 
 void AbstractEG::restart(void){
-    if(this->sustainPoint + 1 >= this->endPoint){
+    if(this->sustainPoint >= this->endPoint){  // sustain off
         return;
     }
     this->step = this->sustainPoint + 1;
-    this->dLevel = (this->target - this->level) / this->rateToSample(this->rates[this->step]);
+    this->dLevel = (this->levels[this->step] - this->level) / this->rateToSample(this->rates[this->step]);
 }
 
 void AbstractEG::update(void){
@@ -62,9 +62,10 @@ void AbstractEG::update(void){
     }
 }
 
-double AbstractEG::generate(void){
+double AbstractEG::generate(bool& isEgEnd){
     double level = this->level;
     this->update();
+    isEgEnd = this->step == EG_STEP_HALT;
     return level;
 }
 
@@ -80,7 +81,7 @@ void ZeroEndEG::proceed(int8 step){
         return;
     }
 
-    if(step == this->endPoint - 1){
+    if(step + 1 == this->endPoint){
         this->target = 0;  // target level at end point must be 0
     }else{
         this->target = this->levels[step+1];

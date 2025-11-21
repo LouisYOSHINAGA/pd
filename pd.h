@@ -105,7 +105,7 @@ class PD{
         PD();
         virtual void setWaveform(int8);
         virtual void setDcw(ParamValue);
-        virtual double generate(double);
+        virtual double generate(double, bool&);
 
         virtual void setupEg(void);
         virtual void setDcaRate(int32, ParamValue);
