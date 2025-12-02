@@ -18,6 +18,15 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context){
         return kResultFalse;
     }
 
+    // pitch bend
+    Parameter* pitchBend = new Parameter(
+        STR16("Pitch Bend"),  // title
+        PARAM_ID_PITCH_BEND,  // tag
+        nullptr,  // units
+        0.5  // default value (normalized)
+    );
+    parameters.addParameter(pitchBend);
+
     // volume
     Parameter* volume = new Parameter(
         STR16("volume"),  // title
@@ -114,6 +123,21 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context){
     parameters.addParameter(end_point);
 
     // add initialize here if needed
+
+    return kResultTrue;
+}
+
+
+tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int16 channel,
+                                                             CtrlNumber midiControllerNumber,
+                                                             ParamID& id){
+    switch(midiControllerNumber){
+        case kPitchBend:
+            id = PARAM_ID_PITCH_BEND;
+            break;
+        default:
+            return kResultFalse;
+    }
 
     return kResultTrue;
 }

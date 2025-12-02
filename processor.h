@@ -19,12 +19,12 @@ class NoteFreqTuple {
         int note;
         double freq;
     public:
-        NoteFreqTuple(int note){
-            this->note = note;
-            this->freq = 440.0 * pow(2.0, (note - 69) / 12.0);
+        NoteFreqTuple(int note):
+            note(note),
+            freq(A4_FREQ * pow(2.0, (note - A4_NOTE) / 12.0)){
         }
-        virtual double getFreq(void){
-            return this->freq;
+        virtual double getFreq(double dNote){
+            return pow(2.0, dNote / 12.0) * this->freq;
         }
         virtual bool isSameNote(int note){
             return this->note == note;
@@ -34,6 +34,7 @@ class NoteFreqTuple {
 
 class PDProcessor: public AudioEffect {
     private:
+        ParamValue pitchBend;
         ParamValue volume;
         vector<NoteFreqTuple> noteFreqListPressed;
         NoteFreqTuple* noteFreqReleased;

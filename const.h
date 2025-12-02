@@ -2,6 +2,8 @@
 
 
 #define SAMPLING_RATE 44100
+#define A4_NOTE 69
+#define A4_FREQ 440.0
 #define EPSILON 0.00001
 
 #define N_OPT_EG_SUSTAIN_POINT 8
@@ -9,6 +11,9 @@
 
 
 typedef enum{
+    // System
+    PARAM_ID_PITCH_BEND,
+
     PARAM_ID_VOLUME,
     PARAM_ID_WAVEFORM,
     PARAM_ID_DCW,

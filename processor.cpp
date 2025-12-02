@@ -20,6 +20,7 @@ PDProcessor::PDProcessor(){
 }
 
 void PDProcessor::initializeParameter(void){
+    this->pitchBend = 0.0;
     this->volume = 0.8;
     this->noteFreqListPressed.clear();
     this->noteFreqReleased = nullptr;
@@ -68,6 +69,9 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
 
         int32 paramId = queue->getParameterId();
         switch(paramId){
+            case PARAM_ID_PITCH_BEND:
+                this->pitchBend = 2 * (value - 0.5);
+                break;
             case PARAM_ID_VOLUME:
                 this->volume = value;
                 break;
@@ -124,10 +128,12 @@ void PDProcessor::processEvent(IEventList* const& eventList){
 
     int32 numEvent = eventList->getEventCount();
     Event event;
+
     for(int32 i = 0; i < numEvent; i++){
         if(eventList->getEvent(i, event) == kResultFalse){
             continue;
         }
+
         switch(event.type){
             case Event::kNoteOnEvent:
                 onNoteOn(event.noteOn.channel, event.noteOn.pitch, event.noteOn.velocity);
@@ -182,9 +188,9 @@ double PDProcessor::generate(void){
     bool isDcaEnd = false;
 
     if(this->noteFreqListPressed.size() > 0){
-        freq = this->noteFreqListPressed[this->noteFreqListPressed.size()-1].getFreq();
+        freq = this->noteFreqListPressed[this->noteFreqListPressed.size()-1].getFreq(this->pitchBend);
     }else{
-        freq = this->noteFreqReleased->getFreq();
+        freq = this->noteFreqReleased->getFreq(this->pitchBend);
     }
 
     double out = this->volume * this->pd.generate(freq, isDcaEnd);
