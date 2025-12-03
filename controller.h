@@ -12,7 +12,7 @@ class PDController: public EditController,
                     public IMidiMapping {
     public:
         static FUnknown* createInstance(void*);
-        tresult PLUGIN_API initialize(FUnknown* context);
+        tresult PLUGIN_API initialize(FUnknown*);
         virtual tresult PLUGIN_API getMidiControllerAssignment(int32, int16, CtrlNumber, ParamID&);
 
         OBJ_METHODS(PDController, EditController)

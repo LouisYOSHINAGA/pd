@@ -212,41 +212,61 @@ void PD::setWaveform(int8 waveformIndex){
     }
 }
 
-void PD::setDcw(ParamValue dcw){
-    this->dcw = dcw;
-    this->generator->setDcw(this->dcw);
-}
-
 double PD::generate(double freq, bool& isDcaEnd){
     this->phasetime += 2 * M_PI * freq / SAMPLING_RATE;
     if(this->phasetime >= 2 * M_PI){
         this->phasetime -= 2 * M_PI;
     }
+    this->dcw = this->dcwEg.generate();
+    this->generator->setDcw(this->dcw);
     return this->dcaEg.generate(isDcaEnd) * this->generator->generate(this->phasetime);
 }
 
 void PD::setupEg(void){
+    this->dcwEg.setup();
     this->dcaEg.setup();
 }
 
-void PD::setDcaRate(int32 index, ParamValue rate){
-    this->dcaEg.setRate(index, rate);
+void PD::setEgRate(int32 paramId, int32 index, ParamValue rate){
+    if(PARAM_ID_DCW_EG_RATE_1 <= paramId && paramId <= PARAM_ID_DCW_EG_RATE_8){
+        this->dcwEg.setRate(index, rate);
+    }else if(PARAM_ID_DCA_EG_RATE_1 <= paramId && paramId <= PARAM_ID_DCA_EG_RATE_8){
+        this->dcaEg.setRate(index, rate);
+    }
 }
 
-void PD::setDcaLevel(int32 index, ParamValue level){
-    this->dcaEg.setLevel(index, level);
+void PD::setEgLevel(int32 paramId, int32 index, ParamValue level){
+    if(PARAM_ID_DCW_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCW_EG_LVL_8){
+        this->dcwEg.setLevel(index, level);
+    }else if(PARAM_ID_DCA_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCA_EG_LVL_8){
+        this->dcaEg.setLevel(index, level);
+    }
 }
 
-void PD::setDcaSustainPoint(int8 point){
-    this->dcaEg.setSustainPoint(point);
+void PD::setEgSustainPoint(int32 paramId, int8 point){
+    if(paramId == PARAM_ID_DCW_EG_SUSTAIN_POINT){
+        this->dcwEg.setSustainPoint(point);
+    }else if(paramId == PARAM_ID_DCA_EG_SUSTAIN_POINT){
+        this->dcaEg.setSustainPoint(point);
+    }
 }
 
-void PD::setDcaEndPoint(int8 point){
-    this->dcaEg.setEndPoint(point);
+void PD::setEgEndPoint(int32 paramId, int8 point){
+    if(paramId == PARAM_ID_DCW_EG_END_POINT){
+        this->dcwEg.setEndPoint(point);
+    }else if(paramId == PARAM_ID_DCA_EG_END_POINT){
+        this->dcaEg.setEndPoint(point);
+    }
 }
 
 void PD::restartEg(void){
+    this->dcwEg.restart();
     this->dcaEg.restart();
+}
+
+void PD::haltEg(void){
+    this->dcwEg.halt();
+    this->dcaEg.halt();
 }
 
 

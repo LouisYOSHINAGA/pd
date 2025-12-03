@@ -51,76 +51,137 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context){
     waveform->appendString(STR16("8: Resonance III Trapezoid"));
     parameters.addParameter(waveform);
 
-    // DCW
-    Parameter* dcw = new Parameter(STR16("DCW"), PARAM_ID_DCW);
-    parameters.addParameter(dcw);
+    // DCW EG Level & Rate
+    Parameter* dcwEgLR;
+    dcwEgLR = new Parameter(STR16("DCW EG Lvl 0"), PARAM_ID_DCW_EG_LVL_0);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Rate 1"), PARAM_ID_DCW_EG_RATE_1);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Lvl 1"), PARAM_ID_DCW_EG_LVL_1);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Rate 2"), PARAM_ID_DCW_EG_RATE_2);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Lvl 2"), PARAM_ID_DCW_EG_LVL_2);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Rate 3"), PARAM_ID_DCW_EG_RATE_3);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Lvl 3"), PARAM_ID_DCW_EG_LVL_3);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Rate 4"), PARAM_ID_DCW_EG_RATE_4);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Lvl 4"), PARAM_ID_DCW_EG_LVL_4);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Rate 5"), PARAM_ID_DCW_EG_RATE_5);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Lvl 5"), PARAM_ID_DCW_EG_LVL_5);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Rate 6"), PARAM_ID_DCW_EG_RATE_6);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Lvl 6"), PARAM_ID_DCW_EG_LVL_6);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Rate 7"), PARAM_ID_DCW_EG_RATE_7);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Lvl 7"), PARAM_ID_DCW_EG_LVL_7);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Rate 8"), PARAM_ID_DCW_EG_RATE_8);
+    parameters.addParameter(dcwEgLR);
+    dcwEgLR = new Parameter(STR16("DCW EG Lvl 8"), PARAM_ID_DCW_EG_LVL_8);
+    parameters.addParameter(dcwEgLR);
 
-    // DCA EG
-    Parameter* param;
-    param = new Parameter(STR16("DCA EG Lvl 0"), PARAM_ID_DCA_EG_LVL_0);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Rate 1"), PARAM_ID_DCA_EG_RATE_1);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Lvl 1"), PARAM_ID_DCA_EG_LVL_1);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Rate 2"), PARAM_ID_DCA_EG_RATE_2);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Lvl 2"), PARAM_ID_DCA_EG_LVL_2);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Rate 3"), PARAM_ID_DCA_EG_RATE_3);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Lvl 3"), PARAM_ID_DCA_EG_LVL_3);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Rate 4"), PARAM_ID_DCA_EG_RATE_4);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Lvl 4"), PARAM_ID_DCA_EG_LVL_4);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Rate 5"), PARAM_ID_DCA_EG_RATE_5);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Lvl 5"), PARAM_ID_DCA_EG_LVL_5);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Rate 6"), PARAM_ID_DCA_EG_RATE_6);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Lvl 6"), PARAM_ID_DCA_EG_LVL_6);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Rate 7"), PARAM_ID_DCA_EG_RATE_7);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Lvl 7"), PARAM_ID_DCA_EG_LVL_7);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Rate 8"), PARAM_ID_DCA_EG_RATE_8);
-    parameters.addParameter(param);
-    param = new Parameter(STR16("DCA EG Lvl 8"), PARAM_ID_DCA_EG_LVL_8);
-    parameters.addParameter(param);
+    // DCW EG Sustain Point
+    StringListParameter* dcwEgSustainPoint = new StringListParameter(
+        STR16("DCW EG Sustain Point"),  // title
+        PARAM_ID_DCW_EG_SUSTAIN_POINT  // tag
+    );
+    dcwEgSustainPoint->appendString(STR16("Off"));
+    dcwEgSustainPoint->appendString(STR16("1"));
+    dcwEgSustainPoint->appendString(STR16("2"));
+    dcwEgSustainPoint->appendString(STR16("3"));
+    dcwEgSustainPoint->appendString(STR16("4"));
+    dcwEgSustainPoint->appendString(STR16("5"));
+    dcwEgSustainPoint->appendString(STR16("6"));
+    dcwEgSustainPoint->appendString(STR16("7"));
+    parameters.addParameter(dcwEgSustainPoint);
+
+    // DCW EG End Point
+    StringListParameter* dcwEgEndPoint = new StringListParameter(
+        STR16("DCW EG End Point"),  // title
+        PARAM_ID_DCW_EG_END_POINT  // tag
+    );
+    dcwEgEndPoint->appendString(STR16("2"));
+    dcwEgEndPoint->appendString(STR16("3"));
+    dcwEgEndPoint->appendString(STR16("4"));
+    dcwEgEndPoint->appendString(STR16("5"));
+    dcwEgEndPoint->appendString(STR16("6"));
+    dcwEgEndPoint->appendString(STR16("7"));
+    dcwEgEndPoint->appendString(STR16("8"));
+    parameters.addParameter(dcwEgEndPoint);
+
+    // DCA EG Level & Rate
+    Parameter* dcaEgLR;
+    dcaEgLR = new Parameter(STR16("DCA EG Lvl 0"), PARAM_ID_DCA_EG_LVL_0);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Rate 1"), PARAM_ID_DCA_EG_RATE_1);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Lvl 1"), PARAM_ID_DCA_EG_LVL_1);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Rate 2"), PARAM_ID_DCA_EG_RATE_2);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Lvl 2"), PARAM_ID_DCA_EG_LVL_2);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Rate 3"), PARAM_ID_DCA_EG_RATE_3);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Lvl 3"), PARAM_ID_DCA_EG_LVL_3);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Rate 4"), PARAM_ID_DCA_EG_RATE_4);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Lvl 4"), PARAM_ID_DCA_EG_LVL_4);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Rate 5"), PARAM_ID_DCA_EG_RATE_5);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Lvl 5"), PARAM_ID_DCA_EG_LVL_5);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Rate 6"), PARAM_ID_DCA_EG_RATE_6);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Lvl 6"), PARAM_ID_DCA_EG_LVL_6);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Rate 7"), PARAM_ID_DCA_EG_RATE_7);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Lvl 7"), PARAM_ID_DCA_EG_LVL_7);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Rate 8"), PARAM_ID_DCA_EG_RATE_8);
+    parameters.addParameter(dcaEgLR);
+    dcaEgLR = new Parameter(STR16("DCA EG Lvl 8"), PARAM_ID_DCA_EG_LVL_8);
+    parameters.addParameter(dcaEgLR);
 
     // DCA EG Sustain Point
-    StringListParameter* sustain_point = new StringListParameter(
+    StringListParameter* dcaEgSustainPoint = new StringListParameter(
         STR16("DCA EG Sustain Point"),  // title
         PARAM_ID_DCA_EG_SUSTAIN_POINT  // tag
-
     );
-    sustain_point->appendString(STR16("Off"));
-    sustain_point->appendString(STR16("1"));
-    sustain_point->appendString(STR16("2"));
-    sustain_point->appendString(STR16("3"));
-    sustain_point->appendString(STR16("4"));
-    sustain_point->appendString(STR16("5"));
-    sustain_point->appendString(STR16("6"));
-    sustain_point->appendString(STR16("7"));
-    parameters.addParameter(sustain_point);
+    dcaEgSustainPoint->appendString(STR16("Off"));
+    dcaEgSustainPoint->appendString(STR16("1"));
+    dcaEgSustainPoint->appendString(STR16("2"));
+    dcaEgSustainPoint->appendString(STR16("3"));
+    dcaEgSustainPoint->appendString(STR16("4"));
+    dcaEgSustainPoint->appendString(STR16("5"));
+    dcaEgSustainPoint->appendString(STR16("6"));
+    dcaEgSustainPoint->appendString(STR16("7"));
+    parameters.addParameter(dcaEgSustainPoint);
 
     // DCA EG End Point
-    StringListParameter* end_point = new StringListParameter(
+    StringListParameter* dcaEgEndPoint = new StringListParameter(
         STR16("DCA EG End Point"),  // title
         PARAM_ID_DCA_EG_END_POINT  // tag
     );
-    end_point->appendString(STR16("2"));
-    end_point->appendString(STR16("3"));
-    end_point->appendString(STR16("4"));
-    end_point->appendString(STR16("5"));
-    end_point->appendString(STR16("6"));
-    end_point->appendString(STR16("7"));
-    end_point->appendString(STR16("8"));
-    parameters.addParameter(end_point);
+    dcaEgEndPoint->appendString(STR16("2"));
+    dcaEgEndPoint->appendString(STR16("3"));
+    dcaEgEndPoint->appendString(STR16("4"));
+    dcaEgEndPoint->appendString(STR16("5"));
+    dcaEgEndPoint->appendString(STR16("6"));
+    dcaEgEndPoint->appendString(STR16("7"));
+    dcaEgEndPoint->appendString(STR16("8"));
+    parameters.addParameter(dcaEgEndPoint);
 
     // add initialize here if needed
 

@@ -51,15 +51,33 @@ void AbstractEG::restart(void){
 }
 
 void AbstractEG::update(void){
+    if(this->step == EG_STEP_HALT){
+        return;
+    }
+
     this->level += this->dLevel;
-    if(this->step == this->endPoint && this->dLevel < 0 && this->level <= 0){
-        this->dLevel = 0;
-        this->step = EG_STEP_HALT;
+    if(this->step == this->endPoint){
+        if((this->dLevel >= 0 && this->level >= this->target)
+        || (this->dLevel <= 0 && this->level <= this->target)){
+            this->halt();
+        }
     }else if((this->dLevel > 0 && this->level >= this->target)
           || (this->dLevel < 0 && this->level <= this->target)){
         this->level = this->levels[this->step];
         this->proceed(this->step);
     }
+}
+
+void AbstractEG::halt(void){
+    this->level = 0;
+    this->dLevel = 0;
+    this->step = EG_STEP_HALT;
+}
+
+double AbstractEG::generate(void){
+    double level = this->level;
+    this->update();
+    return level;
 }
 
 double AbstractEG::generate(bool& isEgEnd){

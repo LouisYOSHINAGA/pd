@@ -35,6 +35,8 @@ class AbstractEG{
         virtual void setEndPoint(int8);
         virtual void setup(void);
         virtual void restart(void);
+        virtual void halt(void);
+        virtual double generate(void);
         virtual double generate(bool&);
 };
 

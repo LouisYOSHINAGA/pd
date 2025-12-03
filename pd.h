@@ -97,22 +97,23 @@ class ResonanceTrapezoidGenerator: public AbstractResonanceGenerator{
 class PD{
     private:
         Waveform waveform;
-        ParamValue dcw;
         double phasetime;
-        std::unique_ptr<AbstractGenerator> generator;
+        double dcw;
+        ZeroEndEG dcwEg;
         ZeroEndEG dcaEg;
+        std::unique_ptr<AbstractGenerator> generator;
     public:
         PD();
         virtual void setWaveform(int8);
-        virtual void setDcw(ParamValue);
         virtual double generate(double, bool&);
 
         virtual void setupEg(void);
-        virtual void setDcaRate(int32, ParamValue);
-        virtual void setDcaLevel(int32, ParamValue);
-        virtual void setDcaSustainPoint(int8);
-        virtual void setDcaEndPoint(int8);
+        virtual void setEgRate(int32, int32, ParamValue);
+        virtual void setEgLevel(int32, int32, ParamValue);
+        virtual void setEgSustainPoint(int32, int8);
+        virtual void setEgEndPoint(int32, int8);
         virtual void restartEg(void);
+        virtual void haltEg(void);
 };
 
 
