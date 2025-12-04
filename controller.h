@@ -4,12 +4,12 @@
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
 
 
-namespace Steinberg {
-namespace Vst {
+namespace Steinberg{
+namespace Vst{
 
 
 class PDController: public EditController,
-                    public IMidiMapping {
+                    public IMidiMapping{
     public:
         static FUnknown* createInstance(void*);
         tresult PLUGIN_API initialize(FUnknown*);

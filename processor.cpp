@@ -6,8 +6,8 @@
 #define INPUT_EVENT_CHANNELS 1
 
 
-namespace Steinberg {
-namespace Vst {
+namespace Steinberg{
+namespace Vst{
 
 
 FUnknown* PDProcessor::createInstance(void*){

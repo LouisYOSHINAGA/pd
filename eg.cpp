@@ -2,8 +2,8 @@
 #include "const.h"
 
 
-namespace Steinberg {
-namespace Vst {
+namespace Steinberg{
+namespace Vst{
 
 
 AbstractEG::AbstractEG():

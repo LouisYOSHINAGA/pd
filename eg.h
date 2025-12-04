@@ -4,8 +4,8 @@
 #include "pluginterfaces/vst/vsttypes.h"
 
 
-namespace Steinberg {
-namespace Vst {
+namespace Steinberg{
+namespace Vst{
 
 
 class AbstractEG{

@@ -6,7 +6,7 @@
 
 
 #define MYVST_VENDOR "Nareshika Works"
-#define MYVST_URL "https://www.xxx.com/"
+#define MYVST_URL "https://github.com/LouisYOSHINAGA/pd"
 #define MYVST_EMAIL "mailto:9dutat.e@gmail.com"
 #define MYVST_VSTNAME "PD"
 #define MYVST_VERSION  "0"
@@ -14,7 +14,7 @@
 
 
 namespace Steinberg{
-namespace Vst {
+namespace Vst{
 
 
 static const FUID ProcessorUID(0x509AE5BE, 0xEA2F4ADF, 0x8C6CB8AE, 0xC306E47B);

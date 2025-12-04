@@ -10,11 +10,11 @@
 
 
 using namespace std;
-namespace Steinberg {
-namespace Vst {
+namespace Steinberg{
+namespace Vst{
 
 
-class NoteFreqTuple {
+class NoteFreqTuple{
     private:
         int note;
         double freq;
@@ -32,7 +32,7 @@ class NoteFreqTuple {
 };
 
 
-class PDProcessor: public AudioEffect {
+class PDProcessor: public AudioEffect{
     private:
         ParamValue pitchBend;
         ParamValue volume;

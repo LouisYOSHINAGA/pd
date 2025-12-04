@@ -6,8 +6,8 @@
 #define PHASE_EPSILON (M_PI / 64.0)
 
 
-namespace Steinberg {
-namespace Vst {
+namespace Steinberg{
+namespace Vst{
 
 
 double AbstractGenerator::generate(double phasetime){

@@ -3,8 +3,8 @@
 #include "config.h"
 
 
-namespace Steinberg {
-namespace Vst {
+namespace Steinberg{
+namespace Vst{
 
 
 FUnknown* PDController::createInstance(void*){

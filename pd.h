@@ -6,8 +6,8 @@
 #include "eg.h"
 
 
-namespace Steinberg {
-namespace Vst {
+namespace Steinberg{
+namespace Vst{
 
 
 class AbstractGenerator{
