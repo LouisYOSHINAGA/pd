@@ -47,7 +47,8 @@ void AbstractEG::restart(void){
         return;
     }
     this->step = this->sustainPoint + 1;
-    this->dLevel = (this->levels[this->step] - this->level) / this->rateToSample(this->rates[this->step]);
+    this->target = this->levels[this->step];
+    this->dLevel = (this->target - this->level) / this->rateToSample(this->rates[this->step]);
 }
 
 void AbstractEG::update(void){
@@ -69,7 +70,7 @@ void AbstractEG::update(void){
 }
 
 void AbstractEG::halt(void){
-    this->level = 0;
+    this->level = this->target;
     this->dLevel = 0;
     this->step = EG_STEP_HALT;
 }
