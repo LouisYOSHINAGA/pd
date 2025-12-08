@@ -51,6 +51,72 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context){
     waveform->appendString(STR16("8: Resonance III Trapezoid"));
     parameters.addParameter(waveform);
 
+    // DCO EG Level & Rate
+    Parameter* dcoEgLR;
+    dcoEgLR = new Parameter(STR16("DCO EG Lvl 0"), PARAM_ID_DCO_EG_LVL_0);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Rate 1"), PARAM_ID_DCO_EG_RATE_1);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Lvl 1"), PARAM_ID_DCO_EG_LVL_1);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Rate 2"), PARAM_ID_DCO_EG_RATE_2);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Lvl 2"), PARAM_ID_DCO_EG_LVL_2);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Rate 3"), PARAM_ID_DCO_EG_RATE_3);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Lvl 3"), PARAM_ID_DCO_EG_LVL_3);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Rate 4"), PARAM_ID_DCO_EG_RATE_4);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Lvl 4"), PARAM_ID_DCO_EG_LVL_4);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Rate 5"), PARAM_ID_DCO_EG_RATE_5);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Lvl 5"), PARAM_ID_DCO_EG_LVL_5);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Rate 6"), PARAM_ID_DCO_EG_RATE_6);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Lvl 6"), PARAM_ID_DCO_EG_LVL_6);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Rate 7"), PARAM_ID_DCO_EG_RATE_7);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Lvl 7"), PARAM_ID_DCO_EG_LVL_7);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Rate 8"), PARAM_ID_DCO_EG_RATE_8);
+    parameters.addParameter(dcoEgLR);
+    dcoEgLR = new Parameter(STR16("DCO EG Lvl 8"), PARAM_ID_DCO_EG_LVL_8);
+    parameters.addParameter(dcoEgLR);
+
+    // DCO EG Sustain Point
+    StringListParameter* dcoEgSustainPoint = new StringListParameter(
+        STR16("DCO EG Sustain Point"),  // title
+        PARAM_ID_DCO_EG_SUSTAIN_POINT  // tag
+    );
+    dcoEgSustainPoint->appendString(STR16("Off"));
+    dcoEgSustainPoint->appendString(STR16("1"));
+    dcoEgSustainPoint->appendString(STR16("2"));
+    dcoEgSustainPoint->appendString(STR16("3"));
+    dcoEgSustainPoint->appendString(STR16("4"));
+    dcoEgSustainPoint->appendString(STR16("5"));
+    dcoEgSustainPoint->appendString(STR16("6"));
+    dcoEgSustainPoint->appendString(STR16("7"));
+    parameters.addParameter(dcoEgSustainPoint);
+
+    // DCO EG End Point
+    StringListParameter* dcoEgEndPoint = new StringListParameter(
+        STR16("DCO EG End Point"),  // title
+        PARAM_ID_DCO_EG_END_POINT  // tag
+    );
+    dcoEgEndPoint->appendString(STR16("2"));
+    dcoEgEndPoint->appendString(STR16("3"));
+    dcoEgEndPoint->appendString(STR16("4"));
+    dcoEgEndPoint->appendString(STR16("5"));
+    dcoEgEndPoint->appendString(STR16("6"));
+    dcoEgEndPoint->appendString(STR16("7"));
+    dcoEgEndPoint->appendString(STR16("8"));
+    parameters.addParameter(dcoEgEndPoint);
+
     // DCW EG Level & Rate
     Parameter* dcwEgLR;
     dcwEgLR = new Parameter(STR16("DCW EG Lvl 0"), PARAM_ID_DCW_EG_LVL_0);

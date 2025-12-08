@@ -175,6 +175,7 @@ double ResonanceTrapezoidGenerator::getEnvelope(double phasetime){
 
 PD::PD():
     waveform(Waveform::SAWTOOTH),
+    dco(0.0),
     dcw(0.0),
     phasetime(0.0),
     generator(std::make_unique<SawToothGenerator>(dcw)){
@@ -213,7 +214,8 @@ void PD::setWaveform(int8 waveformIndex){
 }
 
 double PD::generate(double freq, bool& isDcaEnd){
-    this->phasetime += 2 * M_PI * freq / SAMPLING_RATE;
+    this->dco = this->dcoEg.generate();
+    this->phasetime += 2 * M_PI * freq * (1 + 3 * this->dco) / SAMPLING_RATE;  // temp impl
     if(this->phasetime >= 2 * M_PI){
         this->phasetime -= 2 * M_PI;
     }
@@ -223,12 +225,15 @@ double PD::generate(double freq, bool& isDcaEnd){
 }
 
 void PD::setupEg(void){
+    this->dcoEg.setup();
     this->dcwEg.setup();
     this->dcaEg.setup();
 }
 
 void PD::setEgRate(int32 paramId, int32 index, ParamValue rate){
-    if(PARAM_ID_DCW_EG_RATE_1 <= paramId && paramId <= PARAM_ID_DCW_EG_RATE_8){
+    if(PARAM_ID_DCO_EG_RATE_1 <= paramId && paramId <= PARAM_ID_DCO_EG_RATE_8){
+        this->dcoEg.setRate(index, rate);
+    }else if(PARAM_ID_DCW_EG_RATE_1 <= paramId && paramId <= PARAM_ID_DCW_EG_RATE_8){
         this->dcwEg.setRate(index, rate);
     }else if(PARAM_ID_DCA_EG_RATE_1 <= paramId && paramId <= PARAM_ID_DCA_EG_RATE_8){
         this->dcaEg.setRate(index, rate);
@@ -236,7 +241,9 @@ void PD::setEgRate(int32 paramId, int32 index, ParamValue rate){
 }
 
 void PD::setEgLevel(int32 paramId, int32 index, ParamValue level){
-    if(PARAM_ID_DCW_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCW_EG_LVL_8){
+    if(PARAM_ID_DCO_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCO_EG_LVL_8){
+        this->dcoEg.setLevel(index, level);
+    }else if(PARAM_ID_DCW_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCW_EG_LVL_8){
         this->dcwEg.setLevel(index, level);
     }else if(PARAM_ID_DCA_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCA_EG_LVL_8){
         this->dcaEg.setLevel(index, level);
@@ -244,7 +251,9 @@ void PD::setEgLevel(int32 paramId, int32 index, ParamValue level){
 }
 
 void PD::setEgSustainPoint(int32 paramId, int8 point){
-    if(paramId == PARAM_ID_DCW_EG_SUSTAIN_POINT){
+    if(paramId == PARAM_ID_DCO_EG_SUSTAIN_POINT){
+        this->dcoEg.setSustainPoint(point);
+    }else if(paramId == PARAM_ID_DCW_EG_SUSTAIN_POINT){
         this->dcwEg.setSustainPoint(point);
     }else if(paramId == PARAM_ID_DCA_EG_SUSTAIN_POINT){
         this->dcaEg.setSustainPoint(point);
@@ -252,7 +261,9 @@ void PD::setEgSustainPoint(int32 paramId, int8 point){
 }
 
 void PD::setEgEndPoint(int32 paramId, int8 point){
-    if(paramId == PARAM_ID_DCW_EG_END_POINT){
+    if(paramId == PARAM_ID_DCO_EG_END_POINT){
+        this->dcoEg.setEndPoint(point);
+    }else if(paramId == PARAM_ID_DCW_EG_END_POINT){
         this->dcwEg.setEndPoint(point);
     }else if(paramId == PARAM_ID_DCA_EG_END_POINT){
         this->dcaEg.setEndPoint(point);
@@ -260,11 +271,13 @@ void PD::setEgEndPoint(int32 paramId, int8 point){
 }
 
 void PD::restartEg(void){
+    this->dcoEg.restart();
     this->dcwEg.restart();
     this->dcaEg.restart();
 }
 
 void PD::haltEg(void){
+    this->dcoEg.halt();
     this->dcwEg.halt();
     this->dcaEg.halt();
 }

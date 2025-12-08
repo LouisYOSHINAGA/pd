@@ -80,6 +80,27 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
                     static_cast<int8>(value * static_cast<int8>(Waveform::N_WAVEFORMS) + EPSILON)
                 );
                 break;
+            case PARAM_ID_DCO_EG_RATE_1:
+            case PARAM_ID_DCO_EG_RATE_2:
+            case PARAM_ID_DCO_EG_RATE_3:
+            case PARAM_ID_DCO_EG_RATE_4:
+            case PARAM_ID_DCO_EG_RATE_5:
+            case PARAM_ID_DCO_EG_RATE_6:
+            case PARAM_ID_DCO_EG_RATE_7:
+            case PARAM_ID_DCO_EG_RATE_8:
+                this->pd.setEgRate(paramId, paramId-PARAM_ID_DCO_EG_RATE_1+1, value);
+                break;
+            case PARAM_ID_DCO_EG_LVL_0:
+            case PARAM_ID_DCO_EG_LVL_1:
+            case PARAM_ID_DCO_EG_LVL_2:
+            case PARAM_ID_DCO_EG_LVL_3:
+            case PARAM_ID_DCO_EG_LVL_4:
+            case PARAM_ID_DCO_EG_LVL_5:
+            case PARAM_ID_DCO_EG_LVL_6:
+            case PARAM_ID_DCO_EG_LVL_7:
+            case PARAM_ID_DCO_EG_LVL_8:
+                this->pd.setEgLevel(paramId, paramId-PARAM_ID_DCO_EG_LVL_0, value);
+                break;
             case PARAM_ID_DCW_EG_RATE_1:
             case PARAM_ID_DCW_EG_RATE_2:
             case PARAM_ID_DCW_EG_RATE_3:
@@ -122,6 +143,7 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
             case PARAM_ID_DCA_EG_LVL_8:
                 this->pd.setEgLevel(paramId, paramId-PARAM_ID_DCA_EG_LVL_0, value);
                 break;
+            case PARAM_ID_DCO_EG_SUSTAIN_POINT:
             case PARAM_ID_DCW_EG_SUSTAIN_POINT:
             case PARAM_ID_DCA_EG_SUSTAIN_POINT:
                 this->pd.setEgSustainPoint(
@@ -129,6 +151,7 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
                     static_cast<int8>(value * (N_OPT_EG_SUSTAIN_POINT - 1) + EPSILON)
                 );
                 break;
+            case PARAM_ID_DCO_EG_END_POINT:
             case PARAM_ID_DCW_EG_END_POINT:
             case PARAM_ID_DCA_EG_END_POINT:
                 this->pd.setEgEndPoint(

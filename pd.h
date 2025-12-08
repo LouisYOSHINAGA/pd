@@ -98,7 +98,9 @@ class PD{
     private:
         Waveform waveform;
         double phasetime;
+        double dco;
         double dcw;
+        ZeroEndEG dcoEg;
         ZeroEndEG dcwEg;
         ZeroEndEG dcaEg;
         std::unique_ptr<AbstractGenerator> generator;
