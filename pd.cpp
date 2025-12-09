@@ -231,21 +231,21 @@ void PD::setupEg(void){
 }
 
 void PD::setEgRate(int32 paramId, int32 index, ParamValue rate){
-    if(PARAM_ID_DCO_EG_RATE_1 <= paramId && paramId <= PARAM_ID_DCO_EG_RATE_8){
+    if(PARAM_ID_DCO_EG_RATE_0 <= paramId && paramId <= PARAM_ID_DCO_EG_RATE_7){
         this->dcoEg.setRate(index, rate);
-    }else if(PARAM_ID_DCW_EG_RATE_1 <= paramId && paramId <= PARAM_ID_DCW_EG_RATE_8){
+    }else if(PARAM_ID_DCW_EG_RATE_0 <= paramId && paramId <= PARAM_ID_DCW_EG_RATE_7){
         this->dcwEg.setRate(index, rate);
-    }else if(PARAM_ID_DCA_EG_RATE_1 <= paramId && paramId <= PARAM_ID_DCA_EG_RATE_8){
+    }else if(PARAM_ID_DCA_EG_RATE_0 <= paramId && paramId <= PARAM_ID_DCA_EG_RATE_7){
         this->dcaEg.setRate(index, rate);
     }
 }
 
 void PD::setEgLevel(int32 paramId, int32 index, ParamValue level){
-    if(PARAM_ID_DCO_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCO_EG_LVL_8){
+    if(PARAM_ID_DCO_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCO_EG_LVL_6){
         this->dcoEg.setLevel(index, level);
-    }else if(PARAM_ID_DCW_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCW_EG_LVL_8){
+    }else if(PARAM_ID_DCW_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCW_EG_LVL_6){
         this->dcwEg.setLevel(index, level);
-    }else if(PARAM_ID_DCA_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCA_EG_LVL_8){
+    }else if(PARAM_ID_DCA_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCA_EG_LVL_6){
         this->dcaEg.setLevel(index, level);
     }
 }

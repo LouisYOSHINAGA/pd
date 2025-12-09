@@ -80,6 +80,7 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
                     static_cast<int8>(value * static_cast<int8>(Waveform::N_WAVEFORMS) + EPSILON)
                 );
                 break;
+            case PARAM_ID_DCO_EG_RATE_0:
             case PARAM_ID_DCO_EG_RATE_1:
             case PARAM_ID_DCO_EG_RATE_2:
             case PARAM_ID_DCO_EG_RATE_3:
@@ -87,8 +88,7 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
             case PARAM_ID_DCO_EG_RATE_5:
             case PARAM_ID_DCO_EG_RATE_6:
             case PARAM_ID_DCO_EG_RATE_7:
-            case PARAM_ID_DCO_EG_RATE_8:
-                this->pd.setEgRate(paramId, paramId-PARAM_ID_DCO_EG_RATE_1+1, value);
+                this->pd.setEgRate(paramId, paramId-PARAM_ID_DCO_EG_RATE_0, value);
                 break;
             case PARAM_ID_DCO_EG_LVL_0:
             case PARAM_ID_DCO_EG_LVL_1:
@@ -97,10 +97,9 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
             case PARAM_ID_DCO_EG_LVL_4:
             case PARAM_ID_DCO_EG_LVL_5:
             case PARAM_ID_DCO_EG_LVL_6:
-            case PARAM_ID_DCO_EG_LVL_7:
-            case PARAM_ID_DCO_EG_LVL_8:
                 this->pd.setEgLevel(paramId, paramId-PARAM_ID_DCO_EG_LVL_0, value);
                 break;
+            case PARAM_ID_DCW_EG_RATE_0:
             case PARAM_ID_DCW_EG_RATE_1:
             case PARAM_ID_DCW_EG_RATE_2:
             case PARAM_ID_DCW_EG_RATE_3:
@@ -108,8 +107,7 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
             case PARAM_ID_DCW_EG_RATE_5:
             case PARAM_ID_DCW_EG_RATE_6:
             case PARAM_ID_DCW_EG_RATE_7:
-            case PARAM_ID_DCW_EG_RATE_8:
-                this->pd.setEgRate(paramId, paramId-PARAM_ID_DCW_EG_RATE_1+1, value);
+                this->pd.setEgRate(paramId, paramId-PARAM_ID_DCW_EG_RATE_0, value);
                 break;
             case PARAM_ID_DCW_EG_LVL_0:
             case PARAM_ID_DCW_EG_LVL_1:
@@ -118,10 +116,9 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
             case PARAM_ID_DCW_EG_LVL_4:
             case PARAM_ID_DCW_EG_LVL_5:
             case PARAM_ID_DCW_EG_LVL_6:
-            case PARAM_ID_DCW_EG_LVL_7:
-            case PARAM_ID_DCW_EG_LVL_8:
                 this->pd.setEgLevel(paramId, paramId-PARAM_ID_DCW_EG_LVL_0, value);
                 break;
+            case PARAM_ID_DCA_EG_RATE_0:
             case PARAM_ID_DCA_EG_RATE_1:
             case PARAM_ID_DCA_EG_RATE_2:
             case PARAM_ID_DCA_EG_RATE_3:
@@ -129,8 +126,7 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
             case PARAM_ID_DCA_EG_RATE_5:
             case PARAM_ID_DCA_EG_RATE_6:
             case PARAM_ID_DCA_EG_RATE_7:
-            case PARAM_ID_DCA_EG_RATE_8:
-                this->pd.setEgRate(paramId, paramId-PARAM_ID_DCA_EG_RATE_1+1, value);
+                this->pd.setEgRate(paramId, paramId-PARAM_ID_DCA_EG_RATE_0, value);
                 break;
             case PARAM_ID_DCA_EG_LVL_0:
             case PARAM_ID_DCA_EG_LVL_1:
@@ -139,8 +135,6 @@ void PDProcessor::processParameter(IParameterChanges* const& iParamChanges){
             case PARAM_ID_DCA_EG_LVL_4:
             case PARAM_ID_DCA_EG_LVL_5:
             case PARAM_ID_DCA_EG_LVL_6:
-            case PARAM_ID_DCA_EG_LVL_7:
-            case PARAM_ID_DCA_EG_LVL_8:
                 this->pd.setEgLevel(paramId, paramId-PARAM_ID_DCA_EG_LVL_0, value);
                 break;
             case PARAM_ID_DCO_EG_SUSTAIN_POINT:

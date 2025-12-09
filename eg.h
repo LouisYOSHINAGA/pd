@@ -13,11 +13,11 @@ class AbstractEG{
         static constexpr int8 N_EG_STEPS = 8;
         static constexpr int8 EG_STEP_HALT = -1;
         static constexpr int8 EG_STEP_SUSTAIN = -2;
-        static constexpr int8 EG_SUSTAIN_OFF = N_EG_STEPS + 1;
-        static constexpr int8 EG_SUSTAIN_POINT_OFFSET = 0;
-        static constexpr int8 EG_END_POINT_OFFSET = 2;
-        std::array<double, N_EG_STEPS+1> rates;
-        std::array<double, N_EG_STEPS+1> levels;
+        static constexpr int8 EG_SUSTAIN_OFF = N_EG_STEPS;
+        static constexpr int8 EG_SUSTAIN_POINT_OFFSET = -1;
+        static constexpr int8 EG_END_POINT_OFFSET = 1;
+        std::array<double, N_EG_STEPS> rates;
+        std::array<double, N_EG_STEPS-1> levels;
         int8 sustainPoint;
         int8 endPoint;
         int8 step;
@@ -33,7 +33,7 @@ class AbstractEG{
         virtual void setLevel(int32, ParamValue);
         virtual void setSustainPoint(int8);
         virtual void setEndPoint(int8);
-        virtual void setup(void);
+        virtual void setup(void) = 0;
         virtual void restart(void);
         virtual void halt(void);
         virtual double generate(void);
@@ -46,6 +46,7 @@ class ZeroEndEG: public AbstractEG{
         virtual void proceed(int8) override;
     public:
         ZeroEndEG();
+        virtual void setup(void) override;
 };
 
 

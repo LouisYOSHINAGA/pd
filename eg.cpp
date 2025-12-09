@@ -23,9 +23,10 @@ void AbstractEG::setLevel(int32 index, ParamValue level){
 }
 
 void AbstractEG::setSustainPoint(int8 point){
-    this->sustainPoint = EG_SUSTAIN_POINT_OFFSET + point;
-    if(this->sustainPoint == 0){  // Off
+    if(point == 0){  // Off
         this->sustainPoint = EG_SUSTAIN_OFF;
+    }else{
+        this->sustainPoint = EG_SUSTAIN_POINT_OFFSET + point;
     }
 }
 
@@ -37,22 +38,23 @@ double AbstractEG::rateToSample(double rate){
     return 5 * (1.0 - rate) * SAMPLING_RATE + 100;  // TODO: temp impl
 }
 
-void AbstractEG::setup(void){
-    this->level = this->levels[0];
-    this->proceed(0);
-}
-
 void AbstractEG::restart(void){
-    if(this->sustainPoint >= this->endPoint){  // sustain off
-        return;
+    if(this->endPoint <= this->sustainPoint){  // sustain off
+        this->step = this->endPoint;  // go to last step directly
+    }else{
+        this->step = this->sustainPoint + 1;
     }
-    this->step = this->sustainPoint + 1;
-    this->target = this->levels[this->step];
+
+    if(this->step == this->endPoint){
+        this->target = 0;
+    }else{
+        this->target = this->levels[this->step];
+    }
     this->dLevel = (this->target - this->level) / this->rateToSample(this->rates[this->step]);
 }
 
 void AbstractEG::update(void){
-    if(this->step == EG_STEP_HALT){
+    if(this->step == EG_STEP_SUSTAIN || this->step == EG_STEP_HALT){
         return;
     }
 
@@ -92,15 +94,21 @@ double AbstractEG::generate(bool& isEgEnd){
 ZeroEndEG::ZeroEndEG(){
 }
 
+void ZeroEndEG::setup(void){
+    this->level = 0;
+    this->target = this->levels[0];
+    this->dLevel = this->target / this->rateToSample(this->rates[0]);
+    this->step = 0;
+}
+
 void ZeroEndEG::proceed(int8 step){
     if(step == this->sustainPoint){
-        this->target = this->levels[this->sustainPoint+1];  // next target level (after sustain)
         this->dLevel = 0;
         this->step = EG_STEP_SUSTAIN;
         return;
     }
 
-    if(step + 1 == this->endPoint){
+    if(step == this->endPoint - 1){
         this->target = 0;  // target level at end point must be 0
     }else{
         this->target = this->levels[step+1];
