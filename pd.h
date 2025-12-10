@@ -100,9 +100,9 @@ class PD{
         double phasetime;
         double dco;
         double dcw;
-        ZeroEndEG dcoEg;
-        ZeroEndEG dcwEg;
-        ZeroEndEG dcaEg;
+        EG dcoEg;
+        EG dcwEg;
+        EG dcaEg;
         std::unique_ptr<AbstractGenerator> generator;
     public:
         PD();

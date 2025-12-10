@@ -8,7 +8,7 @@ namespace Steinberg{
 namespace Vst{
 
 
-class AbstractEG{
+class EG{
     protected:
         static constexpr int8 N_EG_STEPS = 8;
         static constexpr int8 EG_STEP_HALT = -1;
@@ -25,28 +25,19 @@ class AbstractEG{
         double dLevel;
         double target;
         virtual double rateToSample(double);
-        virtual void proceed(int8) = 0;
+        virtual void proceed(int8);
         virtual void update(void);
     public:
-        AbstractEG();
+        EG();
         virtual void setRate(int32, ParamValue);
         virtual void setLevel(int32, ParamValue);
         virtual void setSustainPoint(int8);
         virtual void setEndPoint(int8);
-        virtual void setup(void) = 0;
+        virtual void setup(void);
         virtual void restart(void);
         virtual void halt(void);
         virtual double generate(void);
         virtual double generate(bool&);
-};
-
-
-class ZeroEndEG: public AbstractEG{
-    protected:
-        virtual void proceed(int8) override;
-    public:
-        ZeroEndEG();
-        virtual void setup(void) override;
 };
 
 

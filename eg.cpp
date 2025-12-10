@@ -6,7 +6,7 @@ namespace Steinberg{
 namespace Vst{
 
 
-AbstractEG::AbstractEG():
+EG::EG():
     rates{}, levels{},
     sustainPoint(EG_SUSTAIN_OFF),  // default: Off
     endPoint(EG_END_POINT_OFFSET),  // default: 2
@@ -14,15 +14,15 @@ AbstractEG::AbstractEG():
     level(0.0), dLevel(0.0), target(0.0){
 }
 
-void AbstractEG::setRate(int32 index, ParamValue rate){
+void EG::setRate(int32 index, ParamValue rate){
     this->rates[index] = rate;
 }
 
-void AbstractEG::setLevel(int32 index, ParamValue level){
+void EG::setLevel(int32 index, ParamValue level){
     this->levels[index] = level;
 }
 
-void AbstractEG::setSustainPoint(int8 point){
+void EG::setSustainPoint(int8 point){
     if(point == 0){  // Off
         this->sustainPoint = EG_SUSTAIN_OFF;
     }else{
@@ -30,15 +30,22 @@ void AbstractEG::setSustainPoint(int8 point){
     }
 }
 
-void AbstractEG::setEndPoint(int8 point){
+void EG::setEndPoint(int8 point){
     this->endPoint = EG_END_POINT_OFFSET + point;
 }
 
-double AbstractEG::rateToSample(double rate){
+double EG::rateToSample(double rate){
     return 5 * (1.0 - rate) * SAMPLING_RATE + 100;  // TODO: temp impl
 }
 
-void AbstractEG::restart(void){
+void EG::setup(void){
+    this->level = 0;
+    this->target = this->levels[0];
+    this->dLevel = this->target / this->rateToSample(this->rates[0]);
+    this->step = 0;
+}
+
+void EG::restart(void){
     if(this->endPoint <= this->sustainPoint){  // sustain off
         this->step = this->endPoint;  // go to last step directly
     }else{
@@ -53,7 +60,7 @@ void AbstractEG::restart(void){
     this->dLevel = (this->target - this->level) / this->rateToSample(this->rates[this->step]);
 }
 
-void AbstractEG::update(void){
+void EG::update(void){
     if(this->step == EG_STEP_SUSTAIN || this->step == EG_STEP_HALT){
         return;
     }
@@ -71,37 +78,13 @@ void AbstractEG::update(void){
     }
 }
 
-void AbstractEG::halt(void){
+void EG::halt(void){
     this->level = this->target;
     this->dLevel = 0;
     this->step = EG_STEP_HALT;
 }
 
-double AbstractEG::generate(void){
-    double level = this->level;
-    this->update();
-    return level;
-}
-
-double AbstractEG::generate(bool& isEgEnd){
-    double level = this->level;
-    this->update();
-    isEgEnd = this->step == EG_STEP_HALT;
-    return level;
-}
-
-
-ZeroEndEG::ZeroEndEG(){
-}
-
-void ZeroEndEG::setup(void){
-    this->level = 0;
-    this->target = this->levels[0];
-    this->dLevel = this->target / this->rateToSample(this->rates[0]);
-    this->step = 0;
-}
-
-void ZeroEndEG::proceed(int8 step){
+void EG::proceed(int8 step){
     if(step == this->sustainPoint){
         this->dLevel = 0;
         this->step = EG_STEP_SUSTAIN;
@@ -115,6 +98,19 @@ void ZeroEndEG::proceed(int8 step){
     }
     this->dLevel = (this->target - this->level) / this->rateToSample(this->rates[step+1]);
     this->step = step + 1;
+}
+
+double EG::generate(void){
+    double level = this->level;
+    this->update();
+    return level;
+}
+
+double EG::generate(bool& isEgEnd){
+    double level = this->level;
+    this->update();
+    isEgEnd = this->step == EG_STEP_HALT;
+    return level;
 }
 
 
