@@ -10,14 +10,14 @@ namespace Steinberg{
 namespace Vst{
 
 
+AbstractGenerator::AbstractGenerator():
+    breakpoint(M_PI), slopeLeft(1.0), slopeRight(1.0){
+}
+
 double AbstractGenerator::generate(double phasetime){
     return - cos(this->getPhase(phasetime));
 }
 
-
-SawToothGenerator::SawToothGenerator(double dcw){
-    this->setDcw(dcw);
-}
 
 void SawToothGenerator::setDcw(double dcw){
     double corrDcw = DCW_CORRECT_COEF * dcw;
@@ -34,10 +34,6 @@ double SawToothGenerator::getPhase(double phasetime){
     }
 }
 
-
-SquareGenerator::SquareGenerator(double dcw){
-    this->setDcw(dcw);
-}
 
 void SquareGenerator::setDcw(double dcw){
     double corrDcw = DCW_CORRECT_COEF * dcw;
@@ -59,10 +55,6 @@ double SquareGenerator::getPhase(double phasetime){
 }
 
 
-PulseGenerator::PulseGenerator(double dcw){
-    this->setDcw(dcw);
-}
-
 void PulseGenerator::setDcw(double dcw){
     double corrDcw = DCW_CORRECT_COEF * dcw;
     this->breakpoint = M_PI * corrDcw;
@@ -83,10 +75,6 @@ double PulseGenerator::getPhase(double phasetime){
 }
 
 
-DoubleSineGenerator::DoubleSineGenerator(double dcw){
-    this->setDcw(dcw);
-}
-
 void DoubleSineGenerator::setDcw(double dcw){
     double corrDcw = DCW_CORRECT_COEF * dcw;
     this->breakpoint = M_PI * (1 - corrDcw);
@@ -102,10 +90,6 @@ double DoubleSineGenerator::getPhase(double phasetime){
     }
 }
 
-
-SawPulseGenerator::SawPulseGenerator(double dcw){
-    this->setDcw(dcw);
-}
 
 void SawPulseGenerator::setDcw(double dcw){
     double corrDcw = DCW_CORRECT_COEF * dcw;
@@ -138,18 +122,10 @@ double AbstractResonanceGenerator::generate(double phasetime){
 }
 
 
-ResonanceSawToothGenerator::ResonanceSawToothGenerator(double dcw){
-    this->setDcw(dcw);
-}
-
 double ResonanceSawToothGenerator::getEnvelope(double phasetime){
     return 1 - phasetime / (2 * M_PI - PHASE_EPSILON);
 }
 
-
-ResonanceTriangleGenerator::ResonanceTriangleGenerator(double dcw){
-    this->setDcw(dcw);
-}
 
 double ResonanceTriangleGenerator::getEnvelope(double phasetime){
     if(phasetime < M_PI){
@@ -159,10 +135,6 @@ double ResonanceTriangleGenerator::getEnvelope(double phasetime){
     }
 }
 
-
-ResonanceTrapezoidGenerator::ResonanceTrapezoidGenerator(double dcw){
-    this->setDcw(dcw);
-}
 
 double ResonanceTrapezoidGenerator::getEnvelope(double phasetime){
     if(phasetime < M_PI){
@@ -175,38 +147,36 @@ double ResonanceTrapezoidGenerator::getEnvelope(double phasetime){
 
 PD::PD():
     waveform(Waveform::SAWTOOTH),
-    dco(0.0),
-    dcw(0.0),
     phasetime(0.0),
-    generator(std::make_unique<SawToothGenerator>(dcw)){
+    generator(std::make_unique<SawToothGenerator>()){
 }
 
 void PD::setWaveform(int8 waveformIndex){
     this->waveform = static_cast<Waveform>(waveformIndex);
     switch(this->waveform){
         case Waveform::SAWTOOTH:
-            this->generator = std::make_unique<SawToothGenerator>(this->dcw);
+            this->generator = std::make_unique<SawToothGenerator>();
             break;
         case Waveform::SQUARE:
-            this->generator = std::make_unique<SquareGenerator>(this->dcw);
+            this->generator = std::make_unique<SquareGenerator>();
             break;
         case Waveform::PULSE:
-            this->generator = std::make_unique<PulseGenerator>(this->dcw);
+            this->generator = std::make_unique<PulseGenerator>();
             break;
         case Waveform::DOUBLE_SINE:
-            this->generator = std::make_unique<DoubleSineGenerator>(this->dcw);
+            this->generator = std::make_unique<DoubleSineGenerator>();
             break;
         case Waveform::SAW_PULSE:
-            this->generator = std::make_unique<SawPulseGenerator>(this->dcw);
+            this->generator = std::make_unique<SawPulseGenerator>();
             break;
         case Waveform::RESONANCE_SAWTOOTH:
-            this->generator = std::make_unique<ResonanceSawToothGenerator>(this->dcw);
+            this->generator = std::make_unique<ResonanceSawToothGenerator>();
             break;
         case Waveform::RESONANCE_TRIANGLE:
-            this->generator = std::make_unique<ResonanceTriangleGenerator>(this->dcw);
+            this->generator = std::make_unique<ResonanceTriangleGenerator>();
             break;
         case Waveform::RESONANCE_TRAPEZOID:
-            this->generator = std::make_unique<ResonanceTrapezoidGenerator>(this->dcw);
+            this->generator = std::make_unique<ResonanceTrapezoidGenerator>();
             break;
         default:  // never reached
             break;
@@ -214,13 +184,11 @@ void PD::setWaveform(int8 waveformIndex){
 }
 
 double PD::generate(double freq, bool& isDcaEnd){
-    this->dco = this->dcoEg.generate();
-    this->phasetime += 2 * M_PI * freq * (1 + 3 * this->dco) / SAMPLING_RATE;  // temp impl
+    this->phasetime += 2 * M_PI * freq * (1 + 3 * this->dcoEg.generate()) / SAMPLING_RATE;  // temp impl
     if(this->phasetime >= 2 * M_PI){
         this->phasetime -= 2 * M_PI;
     }
-    this->dcw = this->dcwEg.generate();
-    this->generator->setDcw(this->dcw);
+    this->generator->setDcw(this->dcwEg.generate());
     return this->dcaEg.generate(isDcaEnd) * this->generator->generate(this->phasetime);
 }
 

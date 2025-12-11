@@ -17,6 +17,7 @@ class AbstractGenerator{
         double slopeLeft;
         double slopeRight;
     public:
+        AbstractGenerator();
         virtual void setDcw(double) = 0;
         virtual double getPhase(double) = 0;
         virtual double generate(double);
@@ -24,40 +25,35 @@ class AbstractGenerator{
 
 class SawToothGenerator: public AbstractGenerator{
     public:
-        SawToothGenerator() = delete;
-        SawToothGenerator(double);
+        SawToothGenerator() = default;
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;
 };
 
 class SquareGenerator: public AbstractGenerator{
     public:
-        SquareGenerator() = delete;
-        SquareGenerator(double);
+        SquareGenerator() = default;
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;
 };
 
 class PulseGenerator: public AbstractGenerator{
     public:
-        PulseGenerator() = delete;
-        PulseGenerator(double);
+        PulseGenerator() = default;
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;
 };
 
 class DoubleSineGenerator: public AbstractGenerator{
     public:
-        DoubleSineGenerator() = delete;
-        DoubleSineGenerator(double);
+        DoubleSineGenerator() = default;
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;
 };
 
 class SawPulseGenerator: public AbstractGenerator{
     public:
-        SawPulseGenerator() = delete;
-        SawPulseGenerator(double);
+        SawPulseGenerator() = default;
         virtual void setDcw(double) override;
         virtual double getPhase(double) override;
 };
@@ -74,22 +70,19 @@ class AbstractResonanceGenerator: public AbstractGenerator{
 
 class ResonanceSawToothGenerator: public AbstractResonanceGenerator{
     public:
-        ResonanceSawToothGenerator() = delete;
-        ResonanceSawToothGenerator(double);
+        ResonanceSawToothGenerator() = default;
         virtual double getEnvelope(double) override;
 };
 
 class ResonanceTriangleGenerator: public AbstractResonanceGenerator{
     public:
-        ResonanceTriangleGenerator() = delete;
-        ResonanceTriangleGenerator(double);
+        ResonanceTriangleGenerator() = default;
         virtual double getEnvelope(double) override;
 };
 
 class ResonanceTrapezoidGenerator: public AbstractResonanceGenerator{
     public:
-        ResonanceTrapezoidGenerator() = delete;
-        ResonanceTrapezoidGenerator(double);
+        ResonanceTrapezoidGenerator() = default;
         virtual double getEnvelope(double) override;
 };
 
@@ -98,8 +91,6 @@ class PD{
     private:
         Waveform waveform;
         double phasetime;
-        double dco;
-        double dcw;
         EG dcoEg;
         EG dcwEg;
         EG dcaEg;
@@ -108,7 +99,6 @@ class PD{
         PD();
         virtual void setWaveform(int8);
         virtual double generate(double, bool&);
-
         virtual void setupEg(void);
         virtual void setEgRate(int32, int32, ParamValue);
         virtual void setEgLevel(int32, int32, ParamValue);
