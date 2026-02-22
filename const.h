@@ -8,6 +8,8 @@
 
 #define N_OPT_EG_SUSTAIN_POINT 8
 #define N_OPT_EG_END_POINT 7
+// #define N_EG_RATE_STEPS 100  // for future use
+// #define N_EG_LEVEL_STEPS 100  // for future use
 
 
 typedef enum{
