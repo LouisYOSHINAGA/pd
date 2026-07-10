@@ -1,117 +1,122 @@
 #include "eg.h"
+
 #include "const.h"
 
+namespace Steinberg {
+namespace Vst {
 
-namespace Steinberg{
-namespace Vst{
-
-
-EG::EG():
-    rates{}, levels{},
-    sustainPoint(EG_SUSTAIN_OFF),  // default: Off
-    endPoint(EG_END_POINT_OFFSET),  // default: 2
-    step(EG_STEP_HALT),
-    level(0.0), dLevel(0.0), target(0.0){
+EG::EG()
+    : rates_{},
+      levels_{},
+      sustainPoint_(kEgSustainOff),  // default: Off
+      endPoint_(kEgEndPointOffset),  // default: 2
+      step_(kEgStepHalt),
+      level_(0.0),
+      dLevel_(0.0),
+      target_(0.0),
+      sampleRate_(kDefaultSampleRate) {
 }
 
-void EG::setRate(int32 index, ParamValue rate){
-    this->rates[index] = rate;
+void EG::setRate(int32 index, ParamValue rate) {
+  rates_[index] = rate;
 }
 
-void EG::setLevel(int32 index, ParamValue level){
-    this->levels[index] = level;
+void EG::setLevel(int32 index, ParamValue level) {
+  levels_[index] = level;
 }
 
-void EG::setSustainPoint(int8 point){
-    if(point == 0){  // Off
-        this->sustainPoint = EG_SUSTAIN_OFF;
-    }else{
-        this->sustainPoint = EG_SUSTAIN_POINT_OFFSET + point;
+void EG::setSustainPoint(int8 point) {
+  if (point == 0) {  // Off
+    sustainPoint_ = kEgSustainOff;
+  } else {
+    sustainPoint_ = kEgSustainPointOffset + point;
+  }
+}
+
+void EG::setEndPoint(int8 point) {
+  endPoint_ = kEgEndPointOffset + point;
+}
+
+void EG::setSampleRate(double sampleRate) {
+  sampleRate_ = sampleRate;
+}
+
+double EG::rateToSample(double rate) {
+  return 5 * (1.0 - rate) * sampleRate_ + 100;  // TODO: temp impl
+}
+
+void EG::setup() {
+  level_ = 0;
+  target_ = levels_[0];
+  dLevel_ = target_ / rateToSample(rates_[0]);
+  step_ = 0;
+}
+
+void EG::restart() {
+  if (endPoint_ <= sustainPoint_) {  // sustain off
+    step_ = endPoint_;  // go to last step directly
+  } else {
+    step_ = sustainPoint_ + 1;
+  }
+
+  if (step_ == endPoint_) {
+    target_ = 0;
+  } else {
+    target_ = levels_[step_];
+  }
+  dLevel_ = (target_ - level_) / rateToSample(rates_[step_]);
+}
+
+void EG::update() {
+  if (step_ == kEgStepSustain || step_ == kEgStepHalt) {
+    return;
+  }
+
+  level_ += dLevel_;
+  if (step_ == endPoint_) {
+    if ((dLevel_ >= 0 && level_ >= target_) || (dLevel_ <= 0 && level_ <= target_)) {
+      halt();
     }
+  } else if ((dLevel_ > 0 && level_ >= target_) || (dLevel_ < 0 && level_ <= target_)) {
+    level_ = levels_[step_];
+    proceed(step_);
+  }
 }
 
-void EG::setEndPoint(int8 point){
-    this->endPoint = EG_END_POINT_OFFSET + point;
+void EG::halt() {
+  level_ = target_;
+  dLevel_ = 0;
+  step_ = kEgStepHalt;
 }
 
-double EG::rateToSample(double rate){
-    return 5 * (1.0 - rate) * SAMPLING_RATE + 100;  // TODO: temp impl
+void EG::proceed(int8 step) {
+  if (step == sustainPoint_) {
+    dLevel_ = 0;
+    step_ = kEgStepSustain;
+    return;
+  }
+
+  if (step == endPoint_ - 1) {
+    target_ = 0;  // target level at end point must be 0
+  } else {
+    target_ = levels_[step + 1];
+  }
+  dLevel_ = (target_ - level_) / rateToSample(rates_[step + 1]);
+  step_ = step + 1;
 }
 
-void EG::setup(void){
-    this->level = 0;
-    this->target = this->levels[0];
-    this->dLevel = this->target / this->rateToSample(this->rates[0]);
-    this->step = 0;
+double EG::generate() {
+  double level = level_;
+  update();
+  return level;
 }
 
-void EG::restart(void){
-    if(this->endPoint <= this->sustainPoint){  // sustain off
-        this->step = this->endPoint;  // go to last step directly
-    }else{
-        this->step = this->sustainPoint + 1;
-    }
-
-    if(this->step == this->endPoint){
-        this->target = 0;
-    }else{
-        this->target = this->levels[this->step];
-    }
-    this->dLevel = (this->target - this->level) / this->rateToSample(this->rates[this->step]);
+double EG::generate(bool& isEgEnd) {
+  double level = level_;
+  update();
+  isEgEnd = step_ == kEgStepHalt;
+  return level;
 }
 
-void EG::update(void){
-    if(this->step == EG_STEP_SUSTAIN || this->step == EG_STEP_HALT){
-        return;
-    }
-
-    this->level += this->dLevel;
-    if(this->step == this->endPoint){
-        if((this->dLevel >= 0 && this->level >= this->target)
-        || (this->dLevel <= 0 && this->level <= this->target)){
-            this->halt();
-        }
-    }else if((this->dLevel > 0 && this->level >= this->target)
-          || (this->dLevel < 0 && this->level <= this->target)){
-        this->level = this->levels[this->step];
-        this->proceed(this->step);
-    }
-}
-
-void EG::halt(void){
-    this->level = this->target;
-    this->dLevel = 0;
-    this->step = EG_STEP_HALT;
-}
-
-void EG::proceed(int8 step){
-    if(step == this->sustainPoint){
-        this->dLevel = 0;
-        this->step = EG_STEP_SUSTAIN;
-        return;
-    }
-
-    if(step == this->endPoint - 1){
-        this->target = 0;  // target level at end point must be 0
-    }else{
-        this->target = this->levels[step+1];
-    }
-    this->dLevel = (this->target - this->level) / this->rateToSample(this->rates[step+1]);
-    this->step = step + 1;
-}
-
-double EG::generate(void){
-    double level = this->level;
-    this->update();
-    return level;
-}
-
-double EG::generate(bool& isEgEnd){
-    double level = this->level;
-    this->update();
-    isEgEnd = this->step == EG_STEP_HALT;
-    return level;
-}
-
-
-} }
+}  // namespace Vst
+}  // namespace Steinberg

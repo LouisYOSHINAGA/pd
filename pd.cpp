@@ -1,254 +1,259 @@
 #include "pd.h"
+
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+namespace Steinberg {
+namespace Vst {
 
-#define PHASE_EPSILON (M_PI / 64.0)
+namespace {
+constexpr double kPhaseEpsilon = M_PI / 64.0;
+}  // namespace
 
-
-namespace Steinberg{
-namespace Vst{
-
-
-AbstractGenerator::AbstractGenerator():
-    breakpoint(M_PI), slopeLeft(1.0), slopeRight(1.0){
+AbstractGenerator::AbstractGenerator()
+    : breakpoint_(M_PI), slopeLeft_(1.0), slopeRight_(1.0), epsilon_(0.0) {
 }
 
-double AbstractGenerator::generate(double phasetime){
-    return - cos(this->getPhase(phasetime));
+double AbstractGenerator::generate(double phasetime) {
+  return -cos(getPhase(phasetime));
 }
 
-
-void SawToothGenerator::setDcw(double dcw){
-    double corrDcw = DCW_CORRECT_COEF * dcw;
-    this->breakpoint = M_PI * (1 - corrDcw);
-    this->slopeLeft = 1 / (1 - corrDcw);
-    this->slopeRight = 1 / (1 + corrDcw);
+void SawToothGenerator::setDcw(double dcw) {
+  double corrDcw = kDcwCorrectCoef * dcw;
+  breakpoint_ = M_PI * (1 - corrDcw);
+  slopeLeft_ = 1 / (1 - corrDcw);
+  slopeRight_ = 1 / (1 + corrDcw);
 }
 
-double SawToothGenerator::getPhase(double phasetime){
-    if(phasetime < this->breakpoint){
-        return this->slopeLeft * phasetime;
-    }else{
-        return M_PI + this->slopeRight * (phasetime - this->breakpoint);
-    }
+double SawToothGenerator::getPhase(double phasetime) {
+  if (phasetime < breakpoint_) {
+    return slopeLeft_ * phasetime;
+  } else {
+    return M_PI + slopeRight_ * (phasetime - breakpoint_);
+  }
 }
 
-
-void SquareGenerator::setDcw(double dcw){
-    double corrDcw = DCW_CORRECT_COEF * dcw;
-    this->breakpoint = M_PI * (1 - corrDcw);
-    this->slopeLeft = (M_PI - PHASE_EPSILON) / (M_PI * (1 - corrDcw));
-    this->slopeRight = PHASE_EPSILON / (M_PI * corrDcw);
+void SquareGenerator::setDcw(double dcw) {
+  double corrDcw = kDcwCorrectCoef * dcw;
+  breakpoint_ = M_PI * (1 - corrDcw);
+  epsilon_ = kPhaseEpsilon * corrDcw;
+  slopeLeft_ = (M_PI - epsilon_) / (M_PI * (1 - corrDcw));
+  slopeRight_ = kPhaseEpsilon / M_PI;
 }
 
-double SquareGenerator::getPhase(double phasetime){
-    if(phasetime < this->breakpoint){
-        return this->slopeLeft * phasetime;
-    }else if(this->breakpoint <= phasetime && phasetime < M_PI){
-        return (M_PI - PHASE_EPSILON) + this->slopeRight * (phasetime - this->breakpoint);
-    }else if(M_PI <= phasetime && phasetime < M_PI + this->breakpoint){
-        return M_PI + this->slopeLeft * (phasetime - M_PI);
-    }else{
-        return (2 * M_PI - PHASE_EPSILON) + this->slopeRight * (phasetime - (M_PI + this->breakpoint));
-    }
+double SquareGenerator::getPhase(double phasetime) {
+  if (phasetime < breakpoint_) {
+    return slopeLeft_ * phasetime;
+  } else if (breakpoint_ <= phasetime && phasetime < M_PI) {
+    return (M_PI - epsilon_) + slopeRight_ * (phasetime - breakpoint_);
+  } else if (M_PI <= phasetime && phasetime < M_PI + breakpoint_) {
+    return M_PI + slopeLeft_ * (phasetime - M_PI);
+  } else {
+    return (2 * M_PI - epsilon_) + slopeRight_ * (phasetime - (M_PI + breakpoint_));
+  }
 }
 
-
-void PulseGenerator::setDcw(double dcw){
-    double corrDcw = DCW_CORRECT_COEF * dcw;
-    this->breakpoint = M_PI * corrDcw;
-    this->slopeLeft = PHASE_EPSILON / (M_PI * corrDcw);
-    this->slopeRight = (M_PI - PHASE_EPSILON) / (M_PI * (1 - corrDcw));
+void PulseGenerator::setDcw(double dcw) {
+  double corrDcw = kDcwCorrectCoef * dcw;
+  breakpoint_ = M_PI * corrDcw;
+  epsilon_ = kPhaseEpsilon * corrDcw;
+  slopeLeft_ = kPhaseEpsilon / M_PI;
+  slopeRight_ = (M_PI - epsilon_) / (M_PI * (1 - corrDcw));
 }
 
-double PulseGenerator::getPhase(double phasetime){
-    if(phasetime < this->breakpoint){
-        return this->slopeLeft * phasetime;
-    }else if(this->breakpoint <= phasetime && phasetime < M_PI){
-        return PHASE_EPSILON + this->slopeRight * (phasetime - this->breakpoint);
-    }else if(M_PI <= phasetime && phasetime < 2 * M_PI - this->breakpoint){
-        return M_PI + this->slopeRight * (phasetime - M_PI);
-    }else{
-        return (2 * M_PI - PHASE_EPSILON) + this->slopeLeft * (phasetime - (2 * M_PI - this->breakpoint));
-    }
+double PulseGenerator::getPhase(double phasetime) {
+  if (phasetime < breakpoint_) {
+    return slopeLeft_ * phasetime;
+  } else if (breakpoint_ <= phasetime && phasetime < M_PI) {
+    return epsilon_ + slopeRight_ * (phasetime - breakpoint_);
+  } else if (M_PI <= phasetime && phasetime < 2 * M_PI - breakpoint_) {
+    return M_PI + slopeRight_ * (phasetime - M_PI);
+  } else {
+    return (2 * M_PI - epsilon_) + slopeLeft_ * (phasetime - (2 * M_PI - breakpoint_));
+  }
 }
 
-
-void DoubleSineGenerator::setDcw(double dcw){
-    double corrDcw = DCW_CORRECT_COEF * dcw;
-    this->breakpoint = M_PI * (1 - corrDcw);
-    this->slopeLeft = 2 / (1 - corrDcw);
-    this->slopeRight = 2 / (1 + corrDcw);
+void DoubleSineGenerator::setDcw(double dcw) {
+  double corrDcw = kDcwCorrectCoef * dcw;
+  breakpoint_ = M_PI * (1 - corrDcw);
+  slopeLeft_ = 2 / (1 - corrDcw);
+  slopeRight_ = 2 / (1 + corrDcw);
 }
 
-double DoubleSineGenerator::getPhase(double phasetime){
-    if(phasetime < this->breakpoint){
-        return this->slopeLeft * phasetime;
-    }else{
-        return 2 * M_PI + this->slopeRight * (phasetime - this->breakpoint);
-    }
+double DoubleSineGenerator::getPhase(double phasetime) {
+  if (phasetime < breakpoint_) {
+    return slopeLeft_ * phasetime;
+  } else {
+    return 2 * M_PI + slopeRight_ * (phasetime - breakpoint_);
+  }
 }
 
-
-void SawPulseGenerator::setDcw(double dcw){
-    double corrDcw = DCW_CORRECT_COEF * dcw;
-    this->breakpoint = M_PI * (1 - corrDcw);
-    this->slopeLeft = (M_PI - PHASE_EPSILON) / (M_PI * (1 - corrDcw));
-    this->slopeRight = PHASE_EPSILON / (1 + corrDcw);
+void SawPulseGenerator::setDcw(double dcw) {
+  double corrDcw = kDcwCorrectCoef * dcw;
+  breakpoint_ = M_PI * (1 - corrDcw);
+  epsilon_ = kPhaseEpsilon * corrDcw;
+  slopeLeft_ = (M_PI - epsilon_) / (M_PI * (1 - corrDcw));
+  slopeRight_ = kPhaseEpsilon / (1 + corrDcw);
 }
 
-double SawPulseGenerator::getPhase(double phasetime){
-    if(phasetime < M_PI){
-        return phasetime;
-    }else if(M_PI <= phasetime && phasetime < M_PI + this->breakpoint){
-        return M_PI + this->slopeLeft * (phasetime - M_PI);
-    }else{
-        return (2 * M_PI - PHASE_EPSILON) + this->slopeRight * (phasetime - this->breakpoint);
-    }
-}
-
-
-void AbstractResonanceGenerator::setDcw(double dcw){
-    this->highFreqPhaseCoef = 1 + MAX_FREQ_MULT * dcw;
-}
-
-double AbstractResonanceGenerator::getPhase(double phasetime){
+double SawPulseGenerator::getPhase(double phasetime) {
+  if (phasetime < M_PI) {
     return phasetime;
+  } else if (M_PI <= phasetime && phasetime < M_PI + breakpoint_) {
+    return M_PI + slopeLeft_ * (phasetime - M_PI);
+  } else {
+    return (2 * M_PI - epsilon_) + slopeRight_ * (phasetime - breakpoint_);
+  }
 }
 
-double AbstractResonanceGenerator::generate(double phasetime){
-    return this->getEnvelope(phasetime) * (- cos(this->highFreqPhaseCoef * phasetime) + 1) - 1;
+void AbstractResonanceGenerator::setDcw(double dcw) {
+  highFreqPhaseCoef_ = 1 + kMaxFreqMult * dcw;
 }
 
-
-double ResonanceSawToothGenerator::getEnvelope(double phasetime){
-    return 1 - phasetime / (2 * M_PI - PHASE_EPSILON);
+double AbstractResonanceGenerator::getPhase(double phasetime) {
+  return phasetime;
 }
 
-
-double ResonanceTriangleGenerator::getEnvelope(double phasetime){
-    if(phasetime < M_PI){
-        return PHASE_EPSILON + (1 - PHASE_EPSILON) / M_PI * phasetime;
-    }else{
-        return PHASE_EPSILON + 1 - (1 - PHASE_EPSILON) / M_PI * (phasetime - M_PI);
-    }
+double AbstractResonanceGenerator::generate(double phasetime) {
+  return getEnvelope(phasetime) * (-cos(highFreqPhaseCoef_ * phasetime) + 1) - 1;
 }
 
-
-double ResonanceTrapezoidGenerator::getEnvelope(double phasetime){
-    if(phasetime < M_PI){
-        return 1.0;
-    }else{
-        return 1 - (phasetime - M_PI) / (M_PI - PHASE_EPSILON);
-    }
+double ResonanceSawToothGenerator::getEnvelope(double phasetime) {
+  return 1 - phasetime / (2 * M_PI - kPhaseEpsilon);
 }
 
-
-PD::PD():
-    waveform(Waveform::SAWTOOTH),
-    phasetime(0.0),
-    generator(std::make_unique<SawToothGenerator>()){
+double ResonanceTriangleGenerator::getEnvelope(double phasetime) {
+  if (phasetime < M_PI) {
+    return kPhaseEpsilon + (1 - kPhaseEpsilon) / M_PI * phasetime;
+  } else {
+    return kPhaseEpsilon + 1 - (1 - kPhaseEpsilon) / M_PI * (phasetime - M_PI);
+  }
 }
 
-void PD::setWaveform(int8 waveformIndex){
-    this->waveform = static_cast<Waveform>(waveformIndex);
-    switch(this->waveform){
-        case Waveform::SAWTOOTH:
-            this->generator = std::make_unique<SawToothGenerator>();
-            break;
-        case Waveform::SQUARE:
-            this->generator = std::make_unique<SquareGenerator>();
-            break;
-        case Waveform::PULSE:
-            this->generator = std::make_unique<PulseGenerator>();
-            break;
-        case Waveform::DOUBLE_SINE:
-            this->generator = std::make_unique<DoubleSineGenerator>();
-            break;
-        case Waveform::SAW_PULSE:
-            this->generator = std::make_unique<SawPulseGenerator>();
-            break;
-        case Waveform::RESONANCE_SAWTOOTH:
-            this->generator = std::make_unique<ResonanceSawToothGenerator>();
-            break;
-        case Waveform::RESONANCE_TRIANGLE:
-            this->generator = std::make_unique<ResonanceTriangleGenerator>();
-            break;
-        case Waveform::RESONANCE_TRAPEZOID:
-            this->generator = std::make_unique<ResonanceTrapezoidGenerator>();
-            break;
-        default:  // never reached
-            break;
-    }
+double ResonanceTrapezoidGenerator::getEnvelope(double phasetime) {
+  if (phasetime < M_PI) {
+    return 1.0;
+  } else {
+    return 1 - (phasetime - M_PI) / (M_PI - kPhaseEpsilon);
+  }
 }
 
-double PD::generate(double freq, bool& isDcaEnd){
-    this->phasetime += 2 * M_PI * freq * (1 + 3 * this->dcoEg.generate()) / SAMPLING_RATE;  // temp impl
-    if(this->phasetime >= 2 * M_PI){
-        this->phasetime -= 2 * M_PI;
-    }
-    this->generator->setDcw(this->dcwEg.generate());
-    return this->dcaEg.generate(isDcaEnd) * this->generator->generate(this->phasetime);
+PD::PD()
+    : waveform_(Waveform::kSawTooth),
+      phasetime_(0.0),
+      sampleRate_(kDefaultSampleRate),
+      generator_(std::make_unique<SawToothGenerator>()) {
 }
 
-void PD::setupEg(void){
-    this->dcoEg.setup();
-    this->dcwEg.setup();
-    this->dcaEg.setup();
+void PD::setWaveform(int8 waveformIndex) {
+  waveform_ = static_cast<Waveform>(waveformIndex);
+  switch (waveform_) {
+    case Waveform::kSawTooth:
+      generator_ = std::make_unique<SawToothGenerator>();
+      break;
+    case Waveform::kSquare:
+      generator_ = std::make_unique<SquareGenerator>();
+      break;
+    case Waveform::kPulse:
+      generator_ = std::make_unique<PulseGenerator>();
+      break;
+    case Waveform::kDoubleSine:
+      generator_ = std::make_unique<DoubleSineGenerator>();
+      break;
+    case Waveform::kSawPulse:
+      generator_ = std::make_unique<SawPulseGenerator>();
+      break;
+    case Waveform::kResonanceSawTooth:
+      generator_ = std::make_unique<ResonanceSawToothGenerator>();
+      break;
+    case Waveform::kResonanceTriangle:
+      generator_ = std::make_unique<ResonanceTriangleGenerator>();
+      break;
+    case Waveform::kResonanceTrapezoid:
+      generator_ = std::make_unique<ResonanceTrapezoidGenerator>();
+      break;
+    default:  // never reached
+      break;
+  }
 }
 
-void PD::setEgRate(int32 paramId, int32 index, ParamValue rate){
-    if(PARAM_ID_DCO_EG_RATE_0 <= paramId && paramId <= PARAM_ID_DCO_EG_RATE_7){
-        this->dcoEg.setRate(index, rate);
-    }else if(PARAM_ID_DCW_EG_RATE_0 <= paramId && paramId <= PARAM_ID_DCW_EG_RATE_7){
-        this->dcwEg.setRate(index, rate);
-    }else if(PARAM_ID_DCA_EG_RATE_0 <= paramId && paramId <= PARAM_ID_DCA_EG_RATE_7){
-        this->dcaEg.setRate(index, rate);
-    }
+void PD::setSampleRate(double sampleRate) {
+  sampleRate_ = sampleRate;
+  dcoEg_.setSampleRate(sampleRate);
+  dcwEg_.setSampleRate(sampleRate);
+  dcaEg_.setSampleRate(sampleRate);
 }
 
-void PD::setEgLevel(int32 paramId, int32 index, ParamValue level){
-    if(PARAM_ID_DCO_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCO_EG_LVL_6){
-        this->dcoEg.setLevel(index, level);
-    }else if(PARAM_ID_DCW_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCW_EG_LVL_6){
-        this->dcwEg.setLevel(index, level);
-    }else if(PARAM_ID_DCA_EG_LVL_0 <= paramId && paramId <= PARAM_ID_DCA_EG_LVL_6){
-        this->dcaEg.setLevel(index, level);
-    }
+void PD::resetPhase() {
+  phasetime_ = 0.0;
 }
 
-void PD::setEgSustainPoint(int32 paramId, int8 point){
-    if(paramId == PARAM_ID_DCO_EG_SUSTAIN_POINT){
-        this->dcoEg.setSustainPoint(point);
-    }else if(paramId == PARAM_ID_DCW_EG_SUSTAIN_POINT){
-        this->dcwEg.setSustainPoint(point);
-    }else if(paramId == PARAM_ID_DCA_EG_SUSTAIN_POINT){
-        this->dcaEg.setSustainPoint(point);
-    }
+double PD::generate(double freq, bool& isDcaEnd) {
+  phasetime_ += 2 * M_PI * freq * (1 + kDcoEgPitchDepth * dcoEg_.generate()) / sampleRate_;  // TODO: temp impl
+  if (phasetime_ >= 2 * M_PI) {
+    phasetime_ -= 2 * M_PI;
+  }
+  generator_->setDcw(dcwEg_.generate());
+  return dcaEg_.generate(isDcaEnd) * generator_->generate(phasetime_);
 }
 
-void PD::setEgEndPoint(int32 paramId, int8 point){
-    if(paramId == PARAM_ID_DCO_EG_END_POINT){
-        this->dcoEg.setEndPoint(point);
-    }else if(paramId == PARAM_ID_DCW_EG_END_POINT){
-        this->dcwEg.setEndPoint(point);
-    }else if(paramId == PARAM_ID_DCA_EG_END_POINT){
-        this->dcaEg.setEndPoint(point);
-    }
+void PD::setupEg() {
+  dcoEg_.setup();
+  dcwEg_.setup();
+  dcaEg_.setup();
 }
 
-void PD::restartEg(void){
-    this->dcoEg.restart();
-    this->dcwEg.restart();
-    this->dcaEg.restart();
+void PD::setEgRate(int32 paramId, int32 index, ParamValue rate) {
+  if (kParamDcoEgRate0 <= paramId && paramId <= kParamDcoEgRate7) {
+    dcoEg_.setRate(index, rate);
+  } else if (kParamDcwEgRate0 <= paramId && paramId <= kParamDcwEgRate7) {
+    dcwEg_.setRate(index, rate);
+  } else if (kParamDcaEgRate0 <= paramId && paramId <= kParamDcaEgRate7) {
+    dcaEg_.setRate(index, rate);
+  }
 }
 
-void PD::haltEg(void){
-    this->dcoEg.halt();
-    this->dcwEg.halt();
-    this->dcaEg.halt();
+void PD::setEgLevel(int32 paramId, int32 index, ParamValue level) {
+  if (kParamDcoEgLevel0 <= paramId && paramId <= kParamDcoEgLevel6) {
+    dcoEg_.setLevel(index, level);
+  } else if (kParamDcwEgLevel0 <= paramId && paramId <= kParamDcwEgLevel6) {
+    dcwEg_.setLevel(index, level);
+  } else if (kParamDcaEgLevel0 <= paramId && paramId <= kParamDcaEgLevel6) {
+    dcaEg_.setLevel(index, level);
+  }
 }
 
+void PD::setEgSustainPoint(int32 paramId, int8 point) {
+  if (paramId == kParamDcoEgSustainPoint) {
+    dcoEg_.setSustainPoint(point);
+  } else if (paramId == kParamDcwEgSustainPoint) {
+    dcwEg_.setSustainPoint(point);
+  } else if (paramId == kParamDcaEgSustainPoint) {
+    dcaEg_.setSustainPoint(point);
+  }
+}
 
-} }
+void PD::setEgEndPoint(int32 paramId, int8 point) {
+  if (paramId == kParamDcoEgEndPoint) {
+    dcoEg_.setEndPoint(point);
+  } else if (paramId == kParamDcwEgEndPoint) {
+    dcwEg_.setEndPoint(point);
+  } else if (paramId == kParamDcaEgEndPoint) {
+    dcaEg_.setEndPoint(point);
+  }
+}
+
+void PD::restartEg() {
+  dcoEg_.restart();
+  dcwEg_.restart();
+  dcaEg_.restart();
+}
+
+void PD::haltEg() {
+  dcoEg_.halt();
+  dcwEg_.halt();
+  dcaEg_.halt();
+}
+
+}  // namespace Vst
+}  // namespace Steinberg

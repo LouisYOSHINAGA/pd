@@ -1,93 +1,105 @@
 #pragma once
 
+namespace Steinberg {
+namespace Vst {
 
-#define SAMPLING_RATE 44100
-#define A4_NOTE 69
-#define A4_FREQ 440.0
-#define EPSILON 0.00001
+constexpr double kDefaultSampleRate = 44100.0;
+constexpr double kA4Note = 69.0;
+constexpr double kA4Freq = 440.0;
+constexpr double kEpsilon = 0.00001;
 
-#define N_OPT_EG_SUSTAIN_POINT 8
-#define N_OPT_EG_END_POINT 7
-// #define N_EG_RATE_STEPS 100  // for future use
-// #define N_EG_LEVEL_STEPS 100  // for future use
+constexpr int kNumEgSustainPointOptions = 8;
+constexpr int kNumEgEndPointOptions = 7;
 
+// Maximum number of simultaneously sounding voices. When a note-on arrives
+// with no free voice available, the oldest allocated voice is stolen.
+constexpr int kMaxVoices = 16;
 
-typedef enum{
-    // System
-    PARAM_ID_PITCH_BEND,
-    PARAM_ID_VOLUME,
+// Fixed per-mix headroom applied to the voice sum (1/sqrt(kMaxVoices)).
+// The usual polyphonic-synth approach: a constant gain independent of how
+// many voices happen to be sounding, so note starts/ends never modulate the
+// loudness of other held notes.
+constexpr double kVoiceMixGain = 0.25;
 
-    // DCO
-    PARAM_ID_WAVEFORM,
+enum ParamId {
+  // System
+  kParamPitchBend,
+  kParamVolume,
 
-    // DCO EG
-    PARAM_ID_DCO_EG_RATE_0,
-    PARAM_ID_DCO_EG_RATE_1,
-    PARAM_ID_DCO_EG_RATE_2,
-    PARAM_ID_DCO_EG_RATE_3,
-    PARAM_ID_DCO_EG_RATE_4,
-    PARAM_ID_DCO_EG_RATE_5,
-    PARAM_ID_DCO_EG_RATE_6,
-    PARAM_ID_DCO_EG_RATE_7,
-    PARAM_ID_DCO_EG_LVL_0,
-    PARAM_ID_DCO_EG_LVL_1,
-    PARAM_ID_DCO_EG_LVL_2,
-    PARAM_ID_DCO_EG_LVL_3,
-    PARAM_ID_DCO_EG_LVL_4,
-    PARAM_ID_DCO_EG_LVL_5,
-    PARAM_ID_DCO_EG_LVL_6,
-    PARAM_ID_DCO_EG_SUSTAIN_POINT,
-    PARAM_ID_DCO_EG_END_POINT,
+  // DCO
+  kParamWaveform,
 
-    // DCW EG
-    PARAM_ID_DCW_EG_RATE_0,
-    PARAM_ID_DCW_EG_RATE_1,
-    PARAM_ID_DCW_EG_RATE_2,
-    PARAM_ID_DCW_EG_RATE_3,
-    PARAM_ID_DCW_EG_RATE_4,
-    PARAM_ID_DCW_EG_RATE_5,
-    PARAM_ID_DCW_EG_RATE_6,
-    PARAM_ID_DCW_EG_RATE_7,
-    PARAM_ID_DCW_EG_LVL_0,
-    PARAM_ID_DCW_EG_LVL_1,
-    PARAM_ID_DCW_EG_LVL_2,
-    PARAM_ID_DCW_EG_LVL_3,
-    PARAM_ID_DCW_EG_LVL_4,
-    PARAM_ID_DCW_EG_LVL_5,
-    PARAM_ID_DCW_EG_LVL_6,
-    PARAM_ID_DCW_EG_SUSTAIN_POINT,
-    PARAM_ID_DCW_EG_END_POINT,
+  // DCO EG
+  kParamDcoEgRate0,
+  kParamDcoEgRate1,
+  kParamDcoEgRate2,
+  kParamDcoEgRate3,
+  kParamDcoEgRate4,
+  kParamDcoEgRate5,
+  kParamDcoEgRate6,
+  kParamDcoEgRate7,
+  kParamDcoEgLevel0,
+  kParamDcoEgLevel1,
+  kParamDcoEgLevel2,
+  kParamDcoEgLevel3,
+  kParamDcoEgLevel4,
+  kParamDcoEgLevel5,
+  kParamDcoEgLevel6,
+  kParamDcoEgSustainPoint,
+  kParamDcoEgEndPoint,
 
-    // DCA EG
-    PARAM_ID_DCA_EG_RATE_0,
-    PARAM_ID_DCA_EG_RATE_1,
-    PARAM_ID_DCA_EG_RATE_2,
-    PARAM_ID_DCA_EG_RATE_3,
-    PARAM_ID_DCA_EG_RATE_4,
-    PARAM_ID_DCA_EG_RATE_5,
-    PARAM_ID_DCA_EG_RATE_6,
-    PARAM_ID_DCA_EG_RATE_7,
-    PARAM_ID_DCA_EG_LVL_0,
-    PARAM_ID_DCA_EG_LVL_1,
-    PARAM_ID_DCA_EG_LVL_2,
-    PARAM_ID_DCA_EG_LVL_3,
-    PARAM_ID_DCA_EG_LVL_4,
-    PARAM_ID_DCA_EG_LVL_5,
-    PARAM_ID_DCA_EG_LVL_6,
-    PARAM_ID_DCA_EG_SUSTAIN_POINT,
-    PARAM_ID_DCA_EG_END_POINT,
+  // DCW EG
+  kParamDcwEgRate0,
+  kParamDcwEgRate1,
+  kParamDcwEgRate2,
+  kParamDcwEgRate3,
+  kParamDcwEgRate4,
+  kParamDcwEgRate5,
+  kParamDcwEgRate6,
+  kParamDcwEgRate7,
+  kParamDcwEgLevel0,
+  kParamDcwEgLevel1,
+  kParamDcwEgLevel2,
+  kParamDcwEgLevel3,
+  kParamDcwEgLevel4,
+  kParamDcwEgLevel5,
+  kParamDcwEgLevel6,
+  kParamDcwEgSustainPoint,
+  kParamDcwEgEndPoint,
 
-    N_PARAMS
-} ParamID;
+  // DCA EG
+  kParamDcaEgRate0,
+  kParamDcaEgRate1,
+  kParamDcaEgRate2,
+  kParamDcaEgRate3,
+  kParamDcaEgRate4,
+  kParamDcaEgRate5,
+  kParamDcaEgRate6,
+  kParamDcaEgRate7,
+  kParamDcaEgLevel0,
+  kParamDcaEgLevel1,
+  kParamDcaEgLevel2,
+  kParamDcaEgLevel3,
+  kParamDcaEgLevel4,
+  kParamDcaEgLevel5,
+  kParamDcaEgLevel6,
+  kParamDcaEgSustainPoint,
+  kParamDcaEgEndPoint,
 
-enum class Waveform{
-    SAWTOOTH,
-    SQUARE,
-    PULSE,
-    DOUBLE_SINE,
-    SAW_PULSE,
-    RESONANCE_SAWTOOTH,
-    RESONANCE_TRIANGLE,
-    RESONANCE_TRAPEZOID,
-    N_WAVEFORMS
+  kNumParams
 };
+
+enum class Waveform {
+  kSawTooth,
+  kSquare,
+  kPulse,
+  kDoubleSine,
+  kSawPulse,
+  kResonanceSawTooth,
+  kResonanceTriangle,
+  kResonanceTrapezoid,
+  kNumWaveforms
+};
+
+}  // namespace Vst
+}  // namespace Steinberg
