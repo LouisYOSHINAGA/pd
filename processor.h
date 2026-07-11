@@ -20,7 +20,7 @@ class PDProcessor : public AudioEffect {
   tresult PLUGIN_API initialize(FUnknown* context) override;
   tresult PLUGIN_API setupProcessing(ProcessSetup& setup) override;
   tresult PLUGIN_API setBusArrangements(SpeakerArrangement* inputs, int32 numIns,
-                                         SpeakerArrangement* outputs, int32 numOuts) override;
+                                        SpeakerArrangement* outputs, int32 numOuts) override;
   tresult PLUGIN_API process(ProcessData& data) override;
 
  private:

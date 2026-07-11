@@ -21,7 +21,7 @@ PDProcessor::PDProcessor() {
 
 void PDProcessor::initializeParameter() {
   pitchBend_ = 0.0;
-  volume_ = 0.8;
+  volume_ = 0.5;
   voices_ = std::array<Voice, kMaxVoices>{};
   nextVoiceAge_ = 0;
 }
@@ -46,7 +46,7 @@ tresult PLUGIN_API PDProcessor::setupProcessing(ProcessSetup& setup) {
 }
 
 tresult PLUGIN_API PDProcessor::setBusArrangements(SpeakerArrangement* inputs, int32 numIns,
-                                                    SpeakerArrangement* outputs, int32 numOuts) {
+                                                   SpeakerArrangement* outputs, int32 numOuts) {
   if (numOuts == 1 && outputs[0] == SpeakerArr::kStereo) {
     return AudioEffect::setBusArrangements(inputs, numIns, outputs, numOuts);
   }
@@ -87,7 +87,8 @@ void PDProcessor::processParameter(IParameterChanges* changes) {
         break;
       case kParamWaveform: {
         int8 waveformIndex = static_cast<int8>(
-            value * (static_cast<int8>(Waveform::kNumWaveforms) - 1) + kEpsilon);
+          value * (static_cast<int8>(Waveform::kNumWaveforms) - 1) + kEpsilon
+        );
         for (Voice& voice : voices_) {
           voice.setWaveform(waveformIndex);
         }

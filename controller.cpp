@@ -18,23 +18,23 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
 
   // pitch bend
   Parameter* pitchBend = new Parameter(STR16("Pitch Bend"),  // title
-                                        kParamPitchBend,      // tag
-                                        nullptr,              // units
-                                        0.5                   // default value (normalized)
+                                       kParamPitchBend,      // tag
+                                       nullptr,              // units
+                                       0.5                   // default value (normalized)
   );
   parameters.addParameter(pitchBend);
 
   // volume
   Parameter* volume = new Parameter(STR16("volume"),  // title
-                                     kParamVolume,     // tag
-                                     nullptr,          // units
-                                     0.8               // default value (normalized)
+                                    kParamVolume,     // tag
+                                    nullptr,          // units
+                                    0.5               // default value (normalized)
   );
   parameters.addParameter(volume);
 
   // waveform
   StringListParameter* waveform = new StringListParameter(STR16("waveform"),  // title
-                                                           kParamWaveform     // tag
+                                                          kParamWaveform     // tag
   );
   waveform->appendString(STR16("1: Saw Tooth"));
   waveform->appendString(STR16("2: Square"));
@@ -82,7 +82,7 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
   // DCO EG Sustain Point
   StringListParameter* dcoEgSustainPoint =
       new StringListParameter(STR16("DCO EG Sustain Point"),  // title
-                               kParamDcoEgSustainPoint         // tag
+                              kParamDcoEgSustainPoint         // tag
       );
   dcoEgSustainPoint->appendString(STR16("Off"));
   dcoEgSustainPoint->appendString(STR16("1"));
@@ -96,7 +96,7 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
 
   // DCO EG End Point
   StringListParameter* dcoEgEndPoint = new StringListParameter(STR16("DCO EG End Point"),  // title
-                                                                kParamDcoEgEndPoint         // tag
+                                                               kParamDcoEgEndPoint         // tag
   );
   dcoEgEndPoint->appendString(STR16("2"));
   dcoEgEndPoint->appendString(STR16("3"));
@@ -143,7 +143,7 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
   // DCW EG Sustain Point
   StringListParameter* dcwEgSustainPoint =
       new StringListParameter(STR16("DCW EG Sustain Point"),  // title
-                               kParamDcwEgSustainPoint         // tag
+                              kParamDcwEgSustainPoint         // tag
       );
   dcwEgSustainPoint->appendString(STR16("Off"));
   dcwEgSustainPoint->appendString(STR16("1"));
@@ -157,7 +157,7 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
 
   // DCW EG End Point
   StringListParameter* dcwEgEndPoint = new StringListParameter(STR16("DCW EG End Point"),  // title
-                                                                kParamDcwEgEndPoint         // tag
+                                                               kParamDcwEgEndPoint         // tag
   );
   dcwEgEndPoint->appendString(STR16("2"));
   dcwEgEndPoint->appendString(STR16("3"));
@@ -204,7 +204,7 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
   // DCA EG Sustain Point
   StringListParameter* dcaEgSustainPoint =
       new StringListParameter(STR16("DCA EG Sustain Point"),  // title
-                               kParamDcaEgSustainPoint         // tag
+                              kParamDcaEgSustainPoint         // tag
       );
   dcaEgSustainPoint->appendString(STR16("Off"));
   dcaEgSustainPoint->appendString(STR16("1"));
@@ -218,7 +218,7 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
 
   // DCA EG End Point
   StringListParameter* dcaEgEndPoint = new StringListParameter(STR16("DCA EG End Point"),  // title
-                                                                kParamDcaEgEndPoint         // tag
+                                                               kParamDcaEgEndPoint         // tag
   );
   dcaEgEndPoint->appendString(STR16("2"));
   dcaEgEndPoint->appendString(STR16("3"));
@@ -235,8 +235,8 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
 }
 
 tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int16 channel,
-                                                               CtrlNumber midiControllerNumber,
-                                                               ParamID& id) {
+                                                             CtrlNumber midiControllerNumber,
+                                                             ParamID& id) {
   switch (midiControllerNumber) {
     case kPitchBend:
       id = kParamPitchBend;
