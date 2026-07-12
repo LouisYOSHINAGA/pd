@@ -1,5 +1,8 @@
 #include "processor.h"
 
+#define _USE_MATH_DEFINES
+#include <math.h>
+
 #include "config.h"
 #include "const.h"
 
@@ -8,6 +11,18 @@ namespace Vst {
 
 namespace {
 constexpr int32 kNumInputEventChannels = 1;
+
+// Decodes a normalized value of a discrete parameter with `numOptions`
+// states into its option index.
+int32 decodeOption(ParamValue value, int32 numOptions) {
+  return static_cast<int32>(value * (numOptions - 1) + kEpsilon);
+}
+
+// Decodes a normalized value of a symmetric signed discrete parameter
+// (-range .. +range) into its plain value.
+int32 decodeSigned(ParamValue value, int32 range) {
+  return decodeOption(value, 2 * range + 1) - range;
+}
 }  // namespace
 
 FUnknown* PDProcessor::createInstance(void*) {
@@ -22,8 +37,14 @@ PDProcessor::PDProcessor() {
 void PDProcessor::initializeParameter() {
   pitchBend_ = 0.0;
   volume_ = 0.5;
+  lineSelect_ = LineSelect::kLine1;
+  mono_ = false;
+  detuneOctave_ = 0;
+  detuneNote_ = 0;
+  detuneFine_ = 0;
   voices_ = std::array<Voice, kMaxVoices>{};
   nextVoiceAge_ = 0;
+  heldNotes_.clear();
 }
 
 tresult PLUGIN_API PDProcessor::initialize(FUnknown* context) {
@@ -78,113 +99,49 @@ void PDProcessor::processParameter(IParameterChanges* changes) {
     }
 
     int32 paramId = queue->getParameterId();
-    switch (paramId) {
-      case kParamPitchBend:
-        pitchBend_ = 2 * (value - 0.5);
-        break;
-      case kParamVolume:
-        volume_ = value;
-        break;
-      case kParamWaveform: {
-        int8 waveformIndex = static_cast<int8>(
-          value * (static_cast<int8>(Waveform::kNumWaveforms) - 1) + kEpsilon
-        );
-        for (Voice& voice : voices_) {
-          voice.setWaveform(waveformIndex);
-        }
-        break;
+    if (paramId == kParamPitchBend) {
+      pitchBend_ = 2 * (value - 0.5);
+    } else if (paramId == kParamVolume) {
+      volume_ = value;
+    } else if (paramId == kParamLineSelect) {
+      lineSelect_ = static_cast<LineSelect>(
+        decodeOption(value, static_cast<int32>(LineSelect::kNumLineSelects))
+      );
+      for (Voice& voice : voices_) {
+        voice.setLineSelect(lineSelect_);
       }
-      case kParamDcoEgRate0:
-      case kParamDcoEgRate1:
-      case kParamDcoEgRate2:
-      case kParamDcoEgRate3:
-      case kParamDcoEgRate4:
-      case kParamDcoEgRate5:
-      case kParamDcoEgRate6:
-      case kParamDcoEgRate7:
-        for (Voice& voice : voices_) {
-          voice.setEgRate(paramId, paramId - kParamDcoEgRate0, value);
-        }
-        break;
-      case kParamDcoEgLevel0:
-      case kParamDcoEgLevel1:
-      case kParamDcoEgLevel2:
-      case kParamDcoEgLevel3:
-      case kParamDcoEgLevel4:
-      case kParamDcoEgLevel5:
-      case kParamDcoEgLevel6:
-        for (Voice& voice : voices_) {
-          voice.setEgLevel(paramId, paramId - kParamDcoEgLevel0, value);
-        }
-        break;
-      case kParamDcwEgRate0:
-      case kParamDcwEgRate1:
-      case kParamDcwEgRate2:
-      case kParamDcwEgRate3:
-      case kParamDcwEgRate4:
-      case kParamDcwEgRate5:
-      case kParamDcwEgRate6:
-      case kParamDcwEgRate7:
-        for (Voice& voice : voices_) {
-          voice.setEgRate(paramId, paramId - kParamDcwEgRate0, value);
-        }
-        break;
-      case kParamDcwEgLevel0:
-      case kParamDcwEgLevel1:
-      case kParamDcwEgLevel2:
-      case kParamDcwEgLevel3:
-      case kParamDcwEgLevel4:
-      case kParamDcwEgLevel5:
-      case kParamDcwEgLevel6:
-        for (Voice& voice : voices_) {
-          voice.setEgLevel(paramId, paramId - kParamDcwEgLevel0, value);
-        }
-        break;
-      case kParamDcaEgRate0:
-      case kParamDcaEgRate1:
-      case kParamDcaEgRate2:
-      case kParamDcaEgRate3:
-      case kParamDcaEgRate4:
-      case kParamDcaEgRate5:
-      case kParamDcaEgRate6:
-      case kParamDcaEgRate7:
-        for (Voice& voice : voices_) {
-          voice.setEgRate(paramId, paramId - kParamDcaEgRate0, value);
-        }
-        break;
-      case kParamDcaEgLevel0:
-      case kParamDcaEgLevel1:
-      case kParamDcaEgLevel2:
-      case kParamDcaEgLevel3:
-      case kParamDcaEgLevel4:
-      case kParamDcaEgLevel5:
-      case kParamDcaEgLevel6:
-        for (Voice& voice : voices_) {
-          voice.setEgLevel(paramId, paramId - kParamDcaEgLevel0, value);
-        }
-        break;
-      case kParamDcoEgSustainPoint:
-      case kParamDcwEgSustainPoint:
-      case kParamDcaEgSustainPoint: {
-        int8 point = static_cast<int8>(value * (kNumEgSustainPointOptions - 1) + kEpsilon);
-        for (Voice& voice : voices_) {
-          voice.setEgSustainPoint(paramId, point);
-        }
-        break;
+    } else if (paramId == kParamMonoPoly) {
+      bool mono = value >= 0.5;
+      if (mono != mono_) {
+        mono_ = mono;
+        releaseAllVoices();
+        heldNotes_.clear();
       }
-      case kParamDcoEgEndPoint:
-      case kParamDcwEgEndPoint:
-      case kParamDcaEgEndPoint: {
-        int8 point = static_cast<int8>(value * (kNumEgEndPointOptions - 1) + kEpsilon);
-        for (Voice& voice : voices_) {
-          voice.setEgEndPoint(paramId, point);
-        }
-        break;
+    } else if (paramId == kParamDetuneOctave) {
+      detuneOctave_ = decodeSigned(value, kDetuneOctaveRange);
+      updateDetune();
+    } else if (paramId == kParamDetuneNote) {
+      detuneNote_ = decodeSigned(value, kDetuneNoteRange);
+      updateDetune();
+    } else if (paramId == kParamDetuneFine) {
+      detuneFine_ = decodeSigned(value, kDetuneFineRange);
+      updateDetune();
+    } else if (kParamLine1Begin <= paramId && paramId < kNumParams) {
+      int32 rel = paramId - kParamLine1Begin;
+      int32 line = rel / kNumLineParams;
+      int32 offset = rel % kNumLineParams;
+      for (Voice& voice : voices_) {
+        voice.setLineParam(line, offset, value);
       }
-      default:
-        // do nothing
-        break;
     }
+  }
+}
+
+void PDProcessor::updateDetune() {
+  double cents = 1200.0 * detuneOctave_ + 100.0 * detuneNote_ + kDetuneFineStepCents * detuneFine_;
+  double ratio = pow(2.0, cents / 1200.0);
+  for (Voice& voice : voices_) {
+    voice.setDetuneRatio(ratio);
   }
 }
 
@@ -215,28 +172,64 @@ void PDProcessor::processEvent(IEventList* events) {
   }
 }
 
-Voice* PDProcessor::allocateVoice() {
+void PDProcessor::releaseAllVoices() {
   for (Voice& voice : voices_) {
-    if (voice.isFree()) {
-      return &voice;
+    if (voice.isActive()) {
+      voice.noteOff();
+    }
+  }
+}
+
+int32 PDProcessor::effectiveMaxVoices() const {
+  bool dualLine = lineSelect_ == LineSelect::kLine1Plus1Detuned
+               || lineSelect_ == LineSelect::kLine1Plus2Detuned;
+  return dualLine ? kMaxVoices / 2 : kMaxVoices;
+}
+
+Voice* PDProcessor::allocateVoice() {
+  int32 numVoices = effectiveMaxVoices();
+  for (int32 i = 0; i < numVoices; i++) {
+    if (voices_[i].isFree()) {
+      return &voices_[i];
     }
   }
 
   Voice* oldest = &voices_[0];
-  for (Voice& voice : voices_) {
-    if (voice.age() < oldest->age()) {
-      oldest = &voice;
+  for (int32 i = 1; i < numVoices; i++) {
+    if (voices_[i].age() < oldest->age()) {
+      oldest = &voices_[i];
     }
   }
   return oldest;
 }
 
 void PDProcessor::onNoteOn(int channel, int note, float velocity) {
-  Voice* voice = allocateVoice();
-  voice->noteOn(channel, note, nextVoiceAge_++);
+  if (mono_) {
+    heldNotes_.push_back(HeldNote{channel, note});
+    voices_[0].noteOn(channel, note, nextVoiceAge_++);  // last-note priority
+    return;
+  }
+  allocateVoice()->noteOn(channel, note, nextVoiceAge_++);
 }
 
 void PDProcessor::onNoteOff(int channel, int note, float velocity) {
+  if (mono_) {
+    for (int32 i = static_cast<int32>(heldNotes_.size()) - 1; i >= 0; i--) {
+      if (heldNotes_[i].channel == channel && heldNotes_[i].note == note) {
+        heldNotes_.erase(heldNotes_.begin() + i);
+      }
+    }
+    if (voices_[0].isHeld(channel, note)) {
+      if (!heldNotes_.empty()) {
+        // Return to the most recently pressed key that is still held.
+        voices_[0].noteOn(heldNotes_.back().channel, heldNotes_.back().note, nextVoiceAge_++);
+      } else {
+        voices_[0].noteOff();
+      }
+    }
+    return;
+  }
+
   for (Voice& voice : voices_) {
     if (voice.isHeld(channel, note)) {
       voice.noteOff();

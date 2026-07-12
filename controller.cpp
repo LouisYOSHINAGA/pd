@@ -1,10 +1,106 @@
 #include "controller.h"
 
+#include <cstdio>
+
+#include "pluginterfaces/base/ustring.h"
 #include "const.h"
 #include "config.h"
 
 namespace Steinberg {
 namespace Vst {
+
+namespace {
+
+const char* const kWaveformNames[] = {
+  "1: Saw Tooth",
+  "2: Square",
+  "3: Pulse",
+  "4: Double Sine",
+  "5: Saw Pulse",
+  "6: Resonance I Saw Tooth",
+  "7: Resonance II Triangle",
+  "8: Resonance III Trapezoid",
+};
+
+void toString128(String128 dst, const char* src) {
+  UString(dst, 128).fromAscii(src);
+}
+
+void appendAsciiString(StringListParameter* param, const char* text) {
+  String128 str;
+  toString128(str, text);
+  param->appendString(str);
+}
+
+// Registers the waveform selectors and DCO/DCW/DCA EG parameters of one line.
+// `linePrefix` is prepended to every title (e.g. "L1"), `lineBase` is the
+// line's first parameter id (layout in const.h).
+void addLineParameters(ParameterContainer& parameters, const char* linePrefix, int32 lineBase) {
+  char buf[64];
+  String128 title;
+
+  // waveform (first and second; second adds an "Off" state)
+  snprintf(buf, sizeof(buf), "%s Waveform 1st", linePrefix);
+  toString128(title, buf);
+  StringListParameter* waveformFirst =
+      new StringListParameter(title, lineBase + kLineParamWaveformFirst);
+  for (const char* name : kWaveformNames) {
+    appendAsciiString(waveformFirst, name);
+  }
+  parameters.addParameter(waveformFirst);
+
+  snprintf(buf, sizeof(buf), "%s Waveform 2nd", linePrefix);
+  toString128(title, buf);
+  StringListParameter* waveformSecond =
+      new StringListParameter(title, lineBase + kLineParamWaveformSecond);
+  appendAsciiString(waveformSecond, "Off");
+  for (const char* name : kWaveformNames) {
+    appendAsciiString(waveformSecond, name);
+  }
+  parameters.addParameter(waveformSecond);
+
+  // DCO/DCW/DCA EG (order must match EgKind)
+  const char* const egNames[] = {"DCO", "DCW", "DCA"};
+  for (int32 egIndex = 0; egIndex < 3; egIndex++) {
+    int32 egBase = lineBase + kLineParamEgBegin + egIndex * kLineParamEgBlockSize;
+
+    // rates and levels, interleaved for display (Rate 1, Lvl 1, Rate 2, ...)
+    for (int32 i = 0; i < kNumEgRateParams; i++) {
+      snprintf(buf, sizeof(buf), "%s %s EG Rate %d", linePrefix, egNames[egIndex], i + 1);
+      toString128(title, buf);
+      parameters.addParameter(new DiscreteRangeParameter(title, egBase + kEgParamRate0 + i));
+      if (i < kNumEgLevelParams) {
+        snprintf(buf, sizeof(buf), "%s %s EG Lvl %d", linePrefix, egNames[egIndex], i + 1);
+        toString128(title, buf);
+        parameters.addParameter(new DiscreteRangeParameter(title, egBase + kEgParamLevel0 + i));
+      }
+    }
+
+    // sustain point: Off, 1..7
+    snprintf(buf, sizeof(buf), "%s %s EG Sustain Point", linePrefix, egNames[egIndex]);
+    toString128(title, buf);
+    StringListParameter* sustainPoint =
+        new StringListParameter(title, egBase + kEgParamSustainPoint);
+    appendAsciiString(sustainPoint, "Off");
+    for (int32 i = 1; i < kNumEgSustainPointOptions; i++) {
+      snprintf(buf, sizeof(buf), "%d", i);
+      appendAsciiString(sustainPoint, buf);
+    }
+    parameters.addParameter(sustainPoint);
+
+    // end point: 2..8
+    snprintf(buf, sizeof(buf), "%s %s EG End Point", linePrefix, egNames[egIndex]);
+    toString128(title, buf);
+    StringListParameter* endPoint = new StringListParameter(title, egBase + kEgParamEndPoint);
+    for (int32 i = 0; i < kNumEgEndPointOptions; i++) {
+      snprintf(buf, sizeof(buf), "%d", i + 2);
+      appendAsciiString(endPoint, buf);
+    }
+    parameters.addParameter(endPoint);
+  }
+}
+
+}  // namespace
 
 FUnknown* PDController::createInstance(void*) {
   return (IEditController*)new PDController();
@@ -32,204 +128,37 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
   );
   parameters.addParameter(volume);
 
-  // waveform
-  StringListParameter* waveform = new StringListParameter(STR16("waveform"),  // title
-                                                          kParamWaveform     // tag
-  );
-  waveform->appendString(STR16("1: Saw Tooth"));
-  waveform->appendString(STR16("2: Square"));
-  waveform->appendString(STR16("3: Pulse"));
-  waveform->appendString(STR16("4: Double Sine"));
-  waveform->appendString(STR16("5: Saw Pulse"));
-  waveform->appendString(STR16("6: Resonance I Saw Tooth"));
-  waveform->appendString(STR16("7: Resonance II Triangle"));
-  waveform->appendString(STR16("8: Resonance III Trapezoid"));
-  parameters.addParameter(waveform);
+  // line select
+  StringListParameter* lineSelect = new StringListParameter(STR16("Line Select"), kParamLineSelect);
+  lineSelect->appendString(STR16("1"));
+  lineSelect->appendString(STR16("2"));
+  lineSelect->appendString(STR16("1+1'"));
+  lineSelect->appendString(STR16("1+2'"));
+  parameters.addParameter(lineSelect);
 
-  // DCO EG Level & Rate
-  DiscreteRangeParameter* dcoEgLR;
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Rate 1"), kParamDcoEgRate0);
-  parameters.addParameter(dcoEgLR);
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Lvl 1"), kParamDcoEgLevel0);
-  parameters.addParameter(dcoEgLR);
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Rate 2"), kParamDcoEgRate1);
-  parameters.addParameter(dcoEgLR);
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Lvl 2"), kParamDcoEgLevel1);
-  parameters.addParameter(dcoEgLR);
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Rate 3"), kParamDcoEgRate2);
-  parameters.addParameter(dcoEgLR);
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Lvl 3"), kParamDcoEgLevel2);
-  parameters.addParameter(dcoEgLR);
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Rate 4"), kParamDcoEgRate3);
-  parameters.addParameter(dcoEgLR);
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Lvl 4"), kParamDcoEgLevel3);
-  parameters.addParameter(dcoEgLR);
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Rate 5"), kParamDcoEgRate4);
-  parameters.addParameter(dcoEgLR);
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Lvl 5"), kParamDcoEgLevel4);
-  parameters.addParameter(dcoEgLR);
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Rate 6"), kParamDcoEgRate5);
-  parameters.addParameter(dcoEgLR);
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Lvl 6"), kParamDcoEgLevel5);
-  parameters.addParameter(dcoEgLR);
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Rate 7"), kParamDcoEgRate6);
-  parameters.addParameter(dcoEgLR);
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Lvl 7"), kParamDcoEgLevel6);
-  parameters.addParameter(dcoEgLR);
-  dcoEgLR = new DiscreteRangeParameter(STR16("DCO EG Rate 8"), kParamDcoEgRate7);
-  parameters.addParameter(dcoEgLR);
+  // mono/poly (CZ "SOLO" switch)
+  StringListParameter* monoPoly = new StringListParameter(STR16("Mono/Poly"), kParamMonoPoly);
+  monoPoly->appendString(STR16("Poly"));
+  monoPoly->appendString(STR16("Mono"));
+  parameters.addParameter(monoPoly);
 
-  // DCO EG Sustain Point
-  StringListParameter* dcoEgSustainPoint =
-      new StringListParameter(STR16("DCO EG Sustain Point"),  // title
-                              kParamDcoEgSustainPoint         // tag
-      );
-  dcoEgSustainPoint->appendString(STR16("Off"));
-  dcoEgSustainPoint->appendString(STR16("1"));
-  dcoEgSustainPoint->appendString(STR16("2"));
-  dcoEgSustainPoint->appendString(STR16("3"));
-  dcoEgSustainPoint->appendString(STR16("4"));
-  dcoEgSustainPoint->appendString(STR16("5"));
-  dcoEgSustainPoint->appendString(STR16("6"));
-  dcoEgSustainPoint->appendString(STR16("7"));
-  parameters.addParameter(dcoEgSustainPoint);
+  // detune of the primed line (octave/note/fine combine into one offset)
+  parameters.addParameter(new DiscreteRangeParameter(
+    STR16("Detune Octave"), kParamDetuneOctave, nullptr,
+    2 * kDetuneOctaveRange, -kDetuneOctaveRange, kDetuneOctaveRange, 0
+  ));
+  parameters.addParameter(new DiscreteRangeParameter(
+    STR16("Detune Note"), kParamDetuneNote, nullptr,
+    2 * kDetuneNoteRange, -kDetuneNoteRange, kDetuneNoteRange, 0
+  ));
+  parameters.addParameter(new DiscreteRangeParameter(
+    STR16("Detune Fine"), kParamDetuneFine, nullptr,
+    2 * kDetuneFineRange, -kDetuneFineRange, kDetuneFineRange, 0
+  ));
 
-  // DCO EG End Point
-  StringListParameter* dcoEgEndPoint = new StringListParameter(STR16("DCO EG End Point"),  // title
-                                                               kParamDcoEgEndPoint         // tag
-  );
-  dcoEgEndPoint->appendString(STR16("2"));
-  dcoEgEndPoint->appendString(STR16("3"));
-  dcoEgEndPoint->appendString(STR16("4"));
-  dcoEgEndPoint->appendString(STR16("5"));
-  dcoEgEndPoint->appendString(STR16("6"));
-  dcoEgEndPoint->appendString(STR16("7"));
-  dcoEgEndPoint->appendString(STR16("8"));
-  parameters.addParameter(dcoEgEndPoint);
-
-  // DCW EG Level & Rate
-  DiscreteRangeParameter* dcwEgLR;
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Rate 1"), kParamDcwEgRate0);
-  parameters.addParameter(dcwEgLR);
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Lvl 1"), kParamDcwEgLevel0);
-  parameters.addParameter(dcwEgLR);
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Rate 2"), kParamDcwEgRate1);
-  parameters.addParameter(dcwEgLR);
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Lvl 2"), kParamDcwEgLevel1);
-  parameters.addParameter(dcwEgLR);
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Rate 3"), kParamDcwEgRate2);
-  parameters.addParameter(dcwEgLR);
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Lvl 3"), kParamDcwEgLevel2);
-  parameters.addParameter(dcwEgLR);
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Rate 4"), kParamDcwEgRate3);
-  parameters.addParameter(dcwEgLR);
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Lvl 4"), kParamDcwEgLevel3);
-  parameters.addParameter(dcwEgLR);
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Rate 5"), kParamDcwEgRate4);
-  parameters.addParameter(dcwEgLR);
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Lvl 5"), kParamDcwEgLevel4);
-  parameters.addParameter(dcwEgLR);
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Rate 6"), kParamDcwEgRate5);
-  parameters.addParameter(dcwEgLR);
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Lvl 6"), kParamDcwEgLevel5);
-  parameters.addParameter(dcwEgLR);
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Rate 7"), kParamDcwEgRate6);
-  parameters.addParameter(dcwEgLR);
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Lvl 7"), kParamDcwEgLevel6);
-  parameters.addParameter(dcwEgLR);
-  dcwEgLR = new DiscreteRangeParameter(STR16("DCW EG Rate 8"), kParamDcwEgRate7);
-  parameters.addParameter(dcwEgLR);
-
-  // DCW EG Sustain Point
-  StringListParameter* dcwEgSustainPoint =
-      new StringListParameter(STR16("DCW EG Sustain Point"),  // title
-                              kParamDcwEgSustainPoint         // tag
-      );
-  dcwEgSustainPoint->appendString(STR16("Off"));
-  dcwEgSustainPoint->appendString(STR16("1"));
-  dcwEgSustainPoint->appendString(STR16("2"));
-  dcwEgSustainPoint->appendString(STR16("3"));
-  dcwEgSustainPoint->appendString(STR16("4"));
-  dcwEgSustainPoint->appendString(STR16("5"));
-  dcwEgSustainPoint->appendString(STR16("6"));
-  dcwEgSustainPoint->appendString(STR16("7"));
-  parameters.addParameter(dcwEgSustainPoint);
-
-  // DCW EG End Point
-  StringListParameter* dcwEgEndPoint = new StringListParameter(STR16("DCW EG End Point"),  // title
-                                                               kParamDcwEgEndPoint         // tag
-  );
-  dcwEgEndPoint->appendString(STR16("2"));
-  dcwEgEndPoint->appendString(STR16("3"));
-  dcwEgEndPoint->appendString(STR16("4"));
-  dcwEgEndPoint->appendString(STR16("5"));
-  dcwEgEndPoint->appendString(STR16("6"));
-  dcwEgEndPoint->appendString(STR16("7"));
-  dcwEgEndPoint->appendString(STR16("8"));
-  parameters.addParameter(dcwEgEndPoint);
-
-  // DCA EG Level & Rate
-  DiscreteRangeParameter* dcaEgLR;
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Rate 1"), kParamDcaEgRate0);
-  parameters.addParameter(dcaEgLR);
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Lvl 1"), kParamDcaEgLevel0);
-  parameters.addParameter(dcaEgLR);
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Rate 2"), kParamDcaEgRate1);
-  parameters.addParameter(dcaEgLR);
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Lvl 2"), kParamDcaEgLevel1);
-  parameters.addParameter(dcaEgLR);
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Rate 3"), kParamDcaEgRate2);
-  parameters.addParameter(dcaEgLR);
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Lvl 3"), kParamDcaEgLevel2);
-  parameters.addParameter(dcaEgLR);
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Rate 4"), kParamDcaEgRate3);
-  parameters.addParameter(dcaEgLR);
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Lvl 4"), kParamDcaEgLevel3);
-  parameters.addParameter(dcaEgLR);
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Rate 5"), kParamDcaEgRate4);
-  parameters.addParameter(dcaEgLR);
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Lvl 5"), kParamDcaEgLevel4);
-  parameters.addParameter(dcaEgLR);
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Rate 6"), kParamDcaEgRate5);
-  parameters.addParameter(dcaEgLR);
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Lvl 6"), kParamDcaEgLevel5);
-  parameters.addParameter(dcaEgLR);
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Rate 7"), kParamDcaEgRate6);
-  parameters.addParameter(dcaEgLR);
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Lvl 7"), kParamDcaEgLevel6);
-  parameters.addParameter(dcaEgLR);
-  dcaEgLR = new DiscreteRangeParameter(STR16("DCA EG Rate 8"), kParamDcaEgRate7);
-  parameters.addParameter(dcaEgLR);
-
-  // DCA EG Sustain Point
-  StringListParameter* dcaEgSustainPoint =
-      new StringListParameter(STR16("DCA EG Sustain Point"),  // title
-                              kParamDcaEgSustainPoint         // tag
-      );
-  dcaEgSustainPoint->appendString(STR16("Off"));
-  dcaEgSustainPoint->appendString(STR16("1"));
-  dcaEgSustainPoint->appendString(STR16("2"));
-  dcaEgSustainPoint->appendString(STR16("3"));
-  dcaEgSustainPoint->appendString(STR16("4"));
-  dcaEgSustainPoint->appendString(STR16("5"));
-  dcaEgSustainPoint->appendString(STR16("6"));
-  dcaEgSustainPoint->appendString(STR16("7"));
-  parameters.addParameter(dcaEgSustainPoint);
-
-  // DCA EG End Point
-  StringListParameter* dcaEgEndPoint = new StringListParameter(STR16("DCA EG End Point"),  // title
-                                                               kParamDcaEgEndPoint         // tag
-  );
-  dcaEgEndPoint->appendString(STR16("2"));
-  dcaEgEndPoint->appendString(STR16("3"));
-  dcaEgEndPoint->appendString(STR16("4"));
-  dcaEgEndPoint->appendString(STR16("5"));
-  dcaEgEndPoint->appendString(STR16("6"));
-  dcaEgEndPoint->appendString(STR16("7"));
-  dcaEgEndPoint->appendString(STR16("8"));
-  parameters.addParameter(dcaEgEndPoint);
-
-  // add initialize here if needed
+  // per-line waveform and EG parameters
+  addLineParameters(parameters, "L1", kParamLine1Begin);
+  addLineParameters(parameters, "L2", kParamLine2Begin);
 
   return kResultTrue;
 }

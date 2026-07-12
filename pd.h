@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <memory>
 #include "pluginterfaces/vst/vsttypes.h"
 #include "const.h"
@@ -90,31 +91,44 @@ class ResonanceTrapezoidGenerator : public AbstractResonanceGenerator {
   double getEnvelope(double phasetime) override;
 };
 
-// Single-voice PD (phase distortion) sound source: oscillator + DCO/DCW/DCA envelopes.
-// One instance models one sounding voice; PDProcessor owns a pool of these for polyphony.
+// The three envelope generators of one PD line. The enumerator order matches
+// the EG sub-block order of the line parameter layout in const.h.
+enum class EgKind {
+  kDco = 0,
+  kDcw,
+  kDca,
+  kNumEgKinds
+};
+
+// One PD (phase distortion) sound source line: oscillator + DCO/DCW/DCA envelopes.
+// As on the CZ series, a second waveform can be selected in addition to the
+// first; the oscillator then alternates between the two on successive cycles,
+// which doubles the waveform period (adding a sub-harmonic one octave down).
 class PD {
  private:
   static constexpr double kDcoEgPitchDepth = 3.0;  // TODO: temp impl, not yet a user parameter
 
-  Waveform waveform_;
   double phasetime_;
   double sampleRate_;
-  EG dcoEg_;
-  EG dcwEg_;
-  EG dcaEg_;
-  std::unique_ptr<AbstractGenerator> generator_;
+  bool onSecondWaveform_;
+  std::array<EG, static_cast<int>(EgKind::kNumEgKinds)> egs_;
+  std::unique_ptr<AbstractGenerator> generatorFirst_;
+  std::unique_ptr<AbstractGenerator> generatorSecond_;  // null while second is Off
+
+  EG& eg(EgKind kind) { return egs_[static_cast<int>(kind)]; }
 
  public:
   PD();
-  virtual void setWaveform(int8 waveformIndex);
+  virtual void setWaveformFirst(int8 waveformIndex);
+  virtual void setWaveformSecond(int8 selection);  // 0 = Off, 1..8 = waveform index + 1
   virtual void setSampleRate(double sampleRate);
   virtual void resetPhase();
   virtual double generate(double freq, bool& isDcaEnd);
   virtual void setupEg();
-  virtual void setEgRate(int32 paramId, int32 index, ParamValue rate);
-  virtual void setEgLevel(int32 paramId, int32 index, ParamValue level);
-  virtual void setEgSustainPoint(int32 paramId, int8 point);
-  virtual void setEgEndPoint(int32 paramId, int8 point);
+  virtual void setEgRate(EgKind kind, int32 index, ParamValue rate);
+  virtual void setEgLevel(EgKind kind, int32 index, ParamValue level);
+  virtual void setEgSustainPoint(EgKind kind, int8 point);
+  virtual void setEgEndPoint(EgKind kind, int8 point);
   virtual void restartEg();
   virtual void haltEg();
 };

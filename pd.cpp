@@ -138,121 +138,114 @@ double ResonanceTrapezoidGenerator::getEnvelope(double phasetime) {
   }
 }
 
-PD::PD()
-    : waveform_(Waveform::kSawTooth),
-      phasetime_(0.0),
-      sampleRate_(kDefaultSampleRate),
-      generator_(std::make_unique<SawToothGenerator>()) {
+namespace {
+
+std::unique_ptr<AbstractGenerator> makeGenerator(int8 waveformIndex) {
+  switch (static_cast<Waveform>(waveformIndex)) {
+    case Waveform::kSawTooth:
+      return std::make_unique<SawToothGenerator>();
+    case Waveform::kSquare:
+      return std::make_unique<SquareGenerator>();
+    case Waveform::kPulse:
+      return std::make_unique<PulseGenerator>();
+    case Waveform::kDoubleSine:
+      return std::make_unique<DoubleSineGenerator>();
+    case Waveform::kSawPulse:
+      return std::make_unique<SawPulseGenerator>();
+    case Waveform::kResonanceSawTooth:
+      return std::make_unique<ResonanceSawToothGenerator>();
+    case Waveform::kResonanceTriangle:
+      return std::make_unique<ResonanceTriangleGenerator>();
+    case Waveform::kResonanceTrapezoid:
+      return std::make_unique<ResonanceTrapezoidGenerator>();
+    default:  // never reached
+      return std::make_unique<SawToothGenerator>();
+  }
 }
 
-void PD::setWaveform(int8 waveformIndex) {
-  waveform_ = static_cast<Waveform>(waveformIndex);
-  switch (waveform_) {
-    case Waveform::kSawTooth:
-      generator_ = std::make_unique<SawToothGenerator>();
-      break;
-    case Waveform::kSquare:
-      generator_ = std::make_unique<SquareGenerator>();
-      break;
-    case Waveform::kPulse:
-      generator_ = std::make_unique<PulseGenerator>();
-      break;
-    case Waveform::kDoubleSine:
-      generator_ = std::make_unique<DoubleSineGenerator>();
-      break;
-    case Waveform::kSawPulse:
-      generator_ = std::make_unique<SawPulseGenerator>();
-      break;
-    case Waveform::kResonanceSawTooth:
-      generator_ = std::make_unique<ResonanceSawToothGenerator>();
-      break;
-    case Waveform::kResonanceTriangle:
-      generator_ = std::make_unique<ResonanceTriangleGenerator>();
-      break;
-    case Waveform::kResonanceTrapezoid:
-      generator_ = std::make_unique<ResonanceTrapezoidGenerator>();
-      break;
-    default:  // never reached
-      break;
+}  // namespace
+
+PD::PD()
+    : phasetime_(0.0),
+      sampleRate_(kDefaultSampleRate),
+      onSecondWaveform_(false),
+      generatorFirst_(std::make_unique<SawToothGenerator>()),
+      generatorSecond_(nullptr) {
+}
+
+void PD::setWaveformFirst(int8 waveformIndex) {
+  generatorFirst_ = makeGenerator(waveformIndex);
+}
+
+void PD::setWaveformSecond(int8 selection) {
+  if (selection == 0) {  // Off
+    generatorSecond_.reset();
+    onSecondWaveform_ = false;
+  } else {
+    generatorSecond_ = makeGenerator(selection - 1);
   }
 }
 
 void PD::setSampleRate(double sampleRate) {
   sampleRate_ = sampleRate;
-  dcoEg_.setSampleRate(sampleRate);
-  dcwEg_.setSampleRate(sampleRate);
-  dcaEg_.setSampleRate(sampleRate);
+  for (EG& eg : egs_) {
+    eg.setSampleRate(sampleRate);
+  }
 }
 
 void PD::resetPhase() {
   phasetime_ = 0.0;
+  onSecondWaveform_ = false;
 }
 
 double PD::generate(double freq, bool& isDcaEnd) {
-  phasetime_ += 2 * M_PI * freq * (1 + kDcoEgPitchDepth * dcoEg_.generate()) / sampleRate_;  // TODO: temp impl
+  phasetime_ += 2 * M_PI * freq * (1 + kDcoEgPitchDepth * eg(EgKind::kDco).generate()) / sampleRate_;  // TODO: temp impl
   if (phasetime_ >= 2 * M_PI) {
     phasetime_ -= 2 * M_PI;
+    // When a second waveform is selected, alternate waveforms every cycle
+    // (CZ behavior); the combined waveform then repeats every two cycles.
+    if (generatorSecond_ != nullptr) {
+      onSecondWaveform_ = !onSecondWaveform_;
+    }
   }
-  generator_->setDcw(dcwEg_.generate());
-  return dcaEg_.generate(isDcaEnd) * generator_->generate(phasetime_);
+  AbstractGenerator* generator =
+      onSecondWaveform_ ? generatorSecond_.get() : generatorFirst_.get();
+  generator->setDcw(eg(EgKind::kDcw).generate());
+  return eg(EgKind::kDca).generate(isDcaEnd) * generator->generate(phasetime_);
 }
 
 void PD::setupEg() {
-  dcoEg_.setup();
-  dcwEg_.setup();
-  dcaEg_.setup();
-}
-
-void PD::setEgRate(int32 paramId, int32 index, ParamValue rate) {
-  if (kParamDcoEgRate0 <= paramId && paramId <= kParamDcoEgRate7) {
-    dcoEg_.setRate(index, rate);
-  } else if (kParamDcwEgRate0 <= paramId && paramId <= kParamDcwEgRate7) {
-    dcwEg_.setRate(index, rate);
-  } else if (kParamDcaEgRate0 <= paramId && paramId <= kParamDcaEgRate7) {
-    dcaEg_.setRate(index, rate);
+  for (EG& eg : egs_) {
+    eg.setup();
   }
 }
 
-void PD::setEgLevel(int32 paramId, int32 index, ParamValue level) {
-  if (kParamDcoEgLevel0 <= paramId && paramId <= kParamDcoEgLevel6) {
-    dcoEg_.setLevel(index, level);
-  } else if (kParamDcwEgLevel0 <= paramId && paramId <= kParamDcwEgLevel6) {
-    dcwEg_.setLevel(index, level);
-  } else if (kParamDcaEgLevel0 <= paramId && paramId <= kParamDcaEgLevel6) {
-    dcaEg_.setLevel(index, level);
-  }
+void PD::setEgRate(EgKind kind, int32 index, ParamValue rate) {
+  eg(kind).setRate(index, rate);
 }
 
-void PD::setEgSustainPoint(int32 paramId, int8 point) {
-  if (paramId == kParamDcoEgSustainPoint) {
-    dcoEg_.setSustainPoint(point);
-  } else if (paramId == kParamDcwEgSustainPoint) {
-    dcwEg_.setSustainPoint(point);
-  } else if (paramId == kParamDcaEgSustainPoint) {
-    dcaEg_.setSustainPoint(point);
-  }
+void PD::setEgLevel(EgKind kind, int32 index, ParamValue level) {
+  eg(kind).setLevel(index, level);
 }
 
-void PD::setEgEndPoint(int32 paramId, int8 point) {
-  if (paramId == kParamDcoEgEndPoint) {
-    dcoEg_.setEndPoint(point);
-  } else if (paramId == kParamDcwEgEndPoint) {
-    dcwEg_.setEndPoint(point);
-  } else if (paramId == kParamDcaEgEndPoint) {
-    dcaEg_.setEndPoint(point);
-  }
+void PD::setEgSustainPoint(EgKind kind, int8 point) {
+  eg(kind).setSustainPoint(point);
+}
+
+void PD::setEgEndPoint(EgKind kind, int8 point) {
+  eg(kind).setEndPoint(point);
 }
 
 void PD::restartEg() {
-  dcoEg_.restart();
-  dcwEg_.restart();
-  dcaEg_.restart();
+  for (EG& eg : egs_) {
+    eg.restart();
+  }
 }
 
 void PD::haltEg() {
-  dcoEg_.halt();
-  dcwEg_.halt();
-  dcaEg_.halt();
+  for (EG& eg : egs_) {
+    eg.halt();
+  }
 }
 
 }  // namespace Vst
