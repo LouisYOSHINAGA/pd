@@ -1,11 +1,14 @@
 #include "controller.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "base/source/fstreamer.h"
 #include "pluginterfaces/base/ustring.h"
+#include "pluginterfaces/vst/ivstmessage.h"
 #include "const.h"
 #include "config.h"
+#include "editor.h"
 
 namespace Steinberg {
 namespace Vst {
@@ -162,6 +165,49 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
   addLineParameters(parameters, "L2", kParamLine2Begin);
 
   return kResultTrue;
+}
+
+IPlugView* PLUGIN_API PDController::createView(FIDString name) {
+  if (strcmp(name, ViewType::kEditor) == 0) {
+    return new PDEditor(this);
+  }
+  return nullptr;
+}
+
+tresult PLUGIN_API PDController::setParamNormalized(ParamID tag, ParamValue value) {
+  tresult result = EditController::setParamNormalized(tag, value);
+  if (activeEditor_ != nullptr) {
+    activeEditor_->updateControl(tag, value);
+  }
+  return result;
+}
+
+void PDController::setActiveEditor(PDEditor* editor) {
+  activeEditor_ = editor;
+}
+
+tresult PLUGIN_API PDController::notify(IMessage* message) {
+  if (message == nullptr) {
+    return kInvalidArgument;
+  }
+
+  if (strcmp(message->getMessageID(), kScopeMessageId) == 0) {
+    const void* data = nullptr;
+    uint32 size = 0;
+    if (message->getAttributes()->getBinary(kScopeMessageDataAttr, data, size) == kResultTrue) {
+      std::lock_guard<std::mutex> lock(scopeMutex_);
+      const float* samples = static_cast<const float*>(data);
+      scopeData_.assign(samples, samples + size / sizeof(float));
+    }
+    return kResultTrue;
+  }
+
+  return EditController::notify(message);
+}
+
+void PDController::copyScopeData(std::vector<float>& out) {
+  std::lock_guard<std::mutex> lock(scopeMutex_);
+  out = scopeData_;
 }
 
 tresult PLUGIN_API PDController::setComponentState(IBStream* state) {

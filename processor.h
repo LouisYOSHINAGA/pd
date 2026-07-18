@@ -46,6 +46,13 @@ class PDProcessor : public AudioEffect {
   std::vector<HeldNote> heldNotes_;
   // Normalized value of every parameter, kept for state save/load.
   std::array<ParamValue, kNumParams> paramValues_;
+  // Oscilloscope frame under construction; sent to the controller when full.
+  std::array<float, kScopeFrameSize> scopeFrame_{};
+  int32 scopeFramePos_ = 0;
+
+  // Accumulates one output sample for the editor's oscilloscope and sends
+  // the frame to the controller whenever it is full.
+  void pushScopeSample(float sample);
 
   // Stores and dispatches one normalized parameter value; the single entry
   // point shared by host automation (processParameter) and setState.

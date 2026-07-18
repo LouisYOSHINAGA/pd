@@ -11,6 +11,12 @@ constexpr double kEpsilon = 0.00001;
 // Version tag written at the head of the processor state stream.
 constexpr int kStateVersion = 1;
 
+// Oscilloscope: the processor streams frames of recent output samples to the
+// controller as messages; the editor's scope view renders the latest frame.
+constexpr int kScopeFrameSize = 1024;
+constexpr const char* kScopeMessageId = "oscilloscope";
+constexpr const char* kScopeMessageDataAttr = "data";
+
 // Decodes the normalized value of a discrete parameter with `numOptions`
 // states into its option index (0 .. numOptions-1).
 inline int decodeOptionIndex(double normalized, int numOptions) {

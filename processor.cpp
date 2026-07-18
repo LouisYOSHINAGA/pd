@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "base/source/fstreamer.h"
+#include "pluginterfaces/vst/ivstmessage.h"
 #include "config.h"
 #include "const.h"
 
@@ -278,15 +279,41 @@ void PDProcessor::onNoteOff(int channel, int note, float velocity) {
   }
 }
 
+void PDProcessor::pushScopeSample(float sample) {
+  scopeFrame_[scopeFramePos_++] = sample;
+  if (scopeFramePos_ < kScopeFrameSize) {
+    return;
+  }
+  scopeFramePos_ = 0;
+
+  if (IMessage* message = allocateMessage()) {
+    message->setMessageID(kScopeMessageId);
+    message->getAttributes()->setBinary(kScopeMessageDataAttr, scopeFrame_.data(),
+                                        sizeof(float) * kScopeFrameSize);
+    sendMessage(message);
+    message->release();
+  }
+}
+
 void PDProcessor::processReplacing(ProcessData& data) {
+  // The host may call process without buffers just to flush parameters.
+  if (data.numOutputs == 0 || data.numSamples == 0 || data.outputs == nullptr
+      || data.outputs[0].numChannels < 2 || data.outputs[0].channelBuffers32 == nullptr) {
+    return;
+  }
+
   // outputs \in [-1, 1]^(data.outputs[0].numChannels, data.numSamples)
   Sample32* outL = data.outputs[0].channelBuffers32[0];
   Sample32* outR = data.outputs[0].channelBuffers32[1];
+  if (outL == nullptr || outR == nullptr) {
+    return;
+  }
 
   for (int32 i = 0; i < data.numSamples; i++) {
     Sample32 value = static_cast<Sample32>(generate());
     outL[i] = value;
     outR[i] = value;
+    pushScopeSample(value);
   }
 }
 
