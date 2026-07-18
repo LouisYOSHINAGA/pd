@@ -8,6 +8,21 @@ constexpr double kA4Note = 69.0;
 constexpr double kA4Freq = 440.0;
 constexpr double kEpsilon = 0.00001;
 
+// Version tag written at the head of the processor state stream.
+constexpr int kStateVersion = 1;
+
+// Decodes the normalized value of a discrete parameter with `numOptions`
+// states into its option index (0 .. numOptions-1).
+inline int decodeOptionIndex(double normalized, int numOptions) {
+  return static_cast<int>(normalized * (numOptions - 1) + kEpsilon);
+}
+
+// Decodes the normalized value of a symmetric signed discrete parameter
+// into its plain value (-range .. +range).
+inline int decodeSignedOption(double normalized, int range) {
+  return decodeOptionIndex(normalized, 2 * range + 1) - range;
+}
+
 constexpr int kNumEgRateParams = 8;
 constexpr int kNumEgLevelParams = 7;
 constexpr int kNumEgSustainPointOptions = 8;

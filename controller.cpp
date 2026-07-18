@@ -2,6 +2,7 @@
 
 #include <cstdio>
 
+#include "base/source/fstreamer.h"
 #include "pluginterfaces/base/ustring.h"
 #include "const.h"
 #include "config.h"
@@ -163,18 +164,79 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
   return kResultTrue;
 }
 
+tresult PLUGIN_API PDController::setComponentState(IBStream* state) {
+  if (state == nullptr) {
+    return kResultFalse;
+  }
+
+  IBStreamer streamer(state, kLittleEndian);
+  int32 version;
+  if (!streamer.readInt32(version) || version != kStateVersion) {
+    return kResultFalse;
+  }
+  for (int32 paramId = 0; paramId < kNumParams; paramId++) {
+    double value;
+    if (!streamer.readDouble(value)) {
+      return kResultFalse;
+    }
+    setParamNormalized(paramId, value);
+  }
+  return kResultTrue;
+}
+
+namespace {
+
+// MIDI CC assignment of the EG parameters. Each EG occupies one contiguous
+// CC block laid out like the EG parameter sub-block itself (8 rates, 7
+// levels, sustain point, end point); the MIDI channel selects the line
+// (channel 1 = line 1, channel 2 = line 2). The chosen ranges avoid every
+// CC with a conventional meaning (mod wheel, pedals, sound controllers,
+// RPN/NRPN, channel mode messages, ...).
+constexpr CtrlNumber kEgCcBlockFirst[] = {
+  14,   // DCO EG: CC 14-30
+  46,   // DCW EG: CC 46-62
+  102,  // DCA EG: CC 102-118
+};
+
+// Returns the offset within a line parameter block addressed by `cc`,
+// or -1 if the CC is not an EG controller.
+int32 lineParamOffsetForCc(CtrlNumber cc) {
+  for (int32 egIndex = 0; egIndex < 3; egIndex++) {
+    CtrlNumber first = kEgCcBlockFirst[egIndex];
+    if (first <= cc && cc < first + kLineParamEgBlockSize) {
+      return kLineParamEgBegin + egIndex * kLineParamEgBlockSize + (cc - first);
+    }
+  }
+  return -1;
+}
+
+}  // namespace
+
 tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int16 channel,
                                                              CtrlNumber midiControllerNumber,
                                                              ParamID& id) {
+  // channel-independent assignments
   switch (midiControllerNumber) {
     case kPitchBend:
       id = kParamPitchBend;
-      break;
+      return kResultTrue;
+    case kCtrlVolume:  // CC 7, the conventional channel volume
+      id = kParamVolume;
+      return kResultTrue;
     default:
-      return kResultFalse;
+      break;
   }
 
-  return kResultTrue;
+  // EG parameters: MIDI channel 1 controls line 1, channel 2 controls line 2
+  if (channel == 0 || channel == 1) {
+    int32 offset = lineParamOffsetForCc(midiControllerNumber);
+    if (offset >= 0) {
+      id = (channel == 0 ? kParamLine1Begin : kParamLine2Begin) + offset;
+      return kResultTrue;
+    }
+  }
+
+  return kResultFalse;
 }
 
 }  // namespace Vst

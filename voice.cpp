@@ -132,13 +132,13 @@ void Voice::setLineParam(int32 line, int32 offset, ParamValue value) {
 void Voice::applyLineParam(PD& pd, int32 offset, ParamValue value) {
   if (offset == kLineParamWaveformFirst) {
     pd.setWaveformFirst(static_cast<int8>(
-      value * (static_cast<int>(Waveform::kNumWaveforms) - 1) + kEpsilon
+      decodeOptionIndex(value, static_cast<int>(Waveform::kNumWaveforms))
     ));
     return;
   }
   if (offset == kLineParamWaveformSecond) {
     pd.setWaveformSecond(static_cast<int8>(
-      value * (kNumSecondWaveformOptions - 1) + kEpsilon
+      decodeOptionIndex(value, kNumSecondWaveformOptions)
     ));
     return;
   }
@@ -152,11 +152,11 @@ void Voice::applyLineParam(PD& pd, int32 offset, ParamValue value) {
     pd.setEgLevel(kind, index - kEgParamLevel0, value);
   } else if (index == kEgParamSustainPoint) {
     pd.setEgSustainPoint(kind, static_cast<int8>(
-      value * (kNumEgSustainPointOptions - 1) + kEpsilon
+      decodeOptionIndex(value, kNumEgSustainPointOptions)
     ));
   } else {
     pd.setEgEndPoint(kind, static_cast<int8>(
-      value * (kNumEgEndPointOptions - 1) + kEpsilon
+      decodeOptionIndex(value, kNumEgEndPointOptions)
     ));
   }
 }

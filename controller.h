@@ -22,6 +22,7 @@ class PDController : public EditController, public IMidiMapping {
  public:
   static FUnknown* createInstance(void*);
   tresult PLUGIN_API initialize(FUnknown* context) override;
+  tresult PLUGIN_API setComponentState(IBStream* state) override;
   tresult PLUGIN_API getMidiControllerAssignment(int32 busIndex, int16 channel,
                                                  CtrlNumber midiControllerNumber,
                                                  ParamID& id) override;

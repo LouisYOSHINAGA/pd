@@ -23,6 +23,8 @@ class PDProcessor : public AudioEffect {
   tresult PLUGIN_API setBusArrangements(SpeakerArrangement* inputs, int32 numIns,
                                         SpeakerArrangement* outputs, int32 numOuts) override;
   tresult PLUGIN_API process(ProcessData& data) override;
+  tresult PLUGIN_API getState(IBStream* state) override;
+  tresult PLUGIN_API setState(IBStream* state) override;
 
  private:
   struct HeldNote {
@@ -30,18 +32,27 @@ class PDProcessor : public AudioEffect {
     int note;
   };
 
-  ParamValue pitchBend_;
-  ParamValue volume_;
-  LineSelect lineSelect_;
-  bool mono_;
-  int detuneOctave_;
-  int detuneNote_;
-  int detuneFine_;
+  ParamValue pitchBend_ = 0.0;
+  ParamValue volume_ = 0.5;
+  LineSelect lineSelect_ = LineSelect::kLine1;
+  bool mono_ = false;
+  int detuneOctave_ = 0;
+  int detuneNote_ = 0;
+  int detuneFine_ = 0;
   std::array<Voice, kMaxVoices> voices_;
-  uint64_t nextVoiceAge_;
+  uint64_t nextVoiceAge_ = 0;
   // Keys currently held on the keyboard, in press order; used for the
   // last-note priority behavior of mono (SOLO) mode.
   std::vector<HeldNote> heldNotes_;
+  // Normalized value of every parameter, kept for state save/load.
+  std::array<ParamValue, kNumParams> paramValues_;
+
+  // Stores and dispatches one normalized parameter value; the single entry
+  // point shared by host automation (processParameter) and setState.
+  void applyParameter(int32 paramId, ParamValue value);
+
+  // Default normalized value of a parameter, matching the controller side.
+  static ParamValue defaultParamValue(int32 paramId);
 
   void processParameter(IParameterChanges* changes);
   void processEvent(IEventList* events);

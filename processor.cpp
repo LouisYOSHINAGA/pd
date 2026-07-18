@@ -3,6 +3,7 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+#include "base/source/fstreamer.h"
 #include "config.h"
 #include "const.h"
 
@@ -11,18 +12,6 @@ namespace Vst {
 
 namespace {
 constexpr int32 kNumInputEventChannels = 1;
-
-// Decodes a normalized value of a discrete parameter with `numOptions`
-// states into its option index.
-int32 decodeOption(ParamValue value, int32 numOptions) {
-  return static_cast<int32>(value * (numOptions - 1) + kEpsilon);
-}
-
-// Decodes a normalized value of a symmetric signed discrete parameter
-// (-range .. +range) into its plain value.
-int32 decodeSigned(ParamValue value, int32 range) {
-  return decodeOption(value, 2 * range + 1) - range;
-}
 }  // namespace
 
 FUnknown* PDProcessor::createInstance(void*) {
@@ -34,17 +23,27 @@ PDProcessor::PDProcessor() {
   PDProcessor::initializeParameter();
 }
 
+ParamValue PDProcessor::defaultParamValue(int32 paramId) {
+  switch (paramId) {
+    case kParamPitchBend:
+    case kParamDetuneOctave:  // signed parameters center on 0.5
+    case kParamDetuneNote:
+    case kParamDetuneFine:
+      return 0.5;
+    case kParamVolume:
+      return 0.5;
+    default:
+      return 0.0;
+  }
+}
+
 void PDProcessor::initializeParameter() {
-  pitchBend_ = 0.0;
-  volume_ = 0.5;
-  lineSelect_ = LineSelect::kLine1;
-  mono_ = false;
-  detuneOctave_ = 0;
-  detuneNote_ = 0;
-  detuneFine_ = 0;
   voices_ = std::array<Voice, kMaxVoices>{};
   nextVoiceAge_ = 0;
   heldNotes_.clear();
+  for (int32 paramId = 0; paramId < kNumParams; paramId++) {
+    applyParameter(paramId, defaultParamValue(paramId));
+  }
 }
 
 tresult PLUGIN_API PDProcessor::initialize(FUnknown* context) {
@@ -81,6 +80,49 @@ tresult PLUGIN_API PDProcessor::process(ProcessData& data) {
   return kResultTrue;
 }
 
+void PDProcessor::applyParameter(int32 paramId, ParamValue value) {
+  if (paramId < 0 || kNumParams <= paramId) {
+    return;
+  }
+  paramValues_[paramId] = value;
+
+  if (paramId == kParamPitchBend) {
+    pitchBend_ = 2 * (value - 0.5);
+  } else if (paramId == kParamVolume) {
+    volume_ = value;
+  } else if (paramId == kParamLineSelect) {
+    lineSelect_ = static_cast<LineSelect>(
+      decodeOptionIndex(value, static_cast<int>(LineSelect::kNumLineSelects))
+    );
+    for (Voice& voice : voices_) {
+      voice.setLineSelect(lineSelect_);
+    }
+  } else if (paramId == kParamMonoPoly) {
+    bool mono = value >= 0.5;
+    if (mono != mono_) {
+      mono_ = mono;
+      releaseAllVoices();
+      heldNotes_.clear();
+    }
+  } else if (paramId == kParamDetuneOctave) {
+    detuneOctave_ = decodeSignedOption(value, kDetuneOctaveRange);
+    updateDetune();
+  } else if (paramId == kParamDetuneNote) {
+    detuneNote_ = decodeSignedOption(value, kDetuneNoteRange);
+    updateDetune();
+  } else if (paramId == kParamDetuneFine) {
+    detuneFine_ = decodeSignedOption(value, kDetuneFineRange);
+    updateDetune();
+  } else {  // kParamLine1Begin <= paramId < kNumParams
+    int32 rel = paramId - kParamLine1Begin;
+    int32 line = rel / kNumLineParams;
+    int32 offset = rel % kNumLineParams;
+    for (Voice& voice : voices_) {
+      voice.setLineParam(line, offset, value);
+    }
+  }
+}
+
 void PDProcessor::processParameter(IParameterChanges* changes) {
   if (changes == nullptr) {
     return;
@@ -97,44 +139,43 @@ void PDProcessor::processParameter(IParameterChanges* changes) {
     if (queue->getPoint(queue->getPointCount() - 1, sampleOffset, value) == kResultFalse) {
       continue;
     }
-
-    int32 paramId = queue->getParameterId();
-    if (paramId == kParamPitchBend) {
-      pitchBend_ = 2 * (value - 0.5);
-    } else if (paramId == kParamVolume) {
-      volume_ = value;
-    } else if (paramId == kParamLineSelect) {
-      lineSelect_ = static_cast<LineSelect>(
-        decodeOption(value, static_cast<int32>(LineSelect::kNumLineSelects))
-      );
-      for (Voice& voice : voices_) {
-        voice.setLineSelect(lineSelect_);
-      }
-    } else if (paramId == kParamMonoPoly) {
-      bool mono = value >= 0.5;
-      if (mono != mono_) {
-        mono_ = mono;
-        releaseAllVoices();
-        heldNotes_.clear();
-      }
-    } else if (paramId == kParamDetuneOctave) {
-      detuneOctave_ = decodeSigned(value, kDetuneOctaveRange);
-      updateDetune();
-    } else if (paramId == kParamDetuneNote) {
-      detuneNote_ = decodeSigned(value, kDetuneNoteRange);
-      updateDetune();
-    } else if (paramId == kParamDetuneFine) {
-      detuneFine_ = decodeSigned(value, kDetuneFineRange);
-      updateDetune();
-    } else if (kParamLine1Begin <= paramId && paramId < kNumParams) {
-      int32 rel = paramId - kParamLine1Begin;
-      int32 line = rel / kNumLineParams;
-      int32 offset = rel % kNumLineParams;
-      for (Voice& voice : voices_) {
-        voice.setLineParam(line, offset, value);
-      }
-    }
+    applyParameter(queue->getParameterId(), value);
   }
+}
+
+tresult PLUGIN_API PDProcessor::getState(IBStream* state) {
+  if (state == nullptr) {
+    return kResultFalse;
+  }
+
+  IBStreamer streamer(state, kLittleEndian);
+  if (!streamer.writeInt32(kStateVersion)) {
+    return kResultFalse;
+  }
+  if (!streamer.writeDoubleArray(paramValues_.data(), kNumParams)) {
+    return kResultFalse;
+  }
+  return kResultTrue;
+}
+
+tresult PLUGIN_API PDProcessor::setState(IBStream* state) {
+  if (state == nullptr) {
+    return kResultFalse;
+  }
+
+  IBStreamer streamer(state, kLittleEndian);
+  int32 version;
+  if (!streamer.readInt32(version) || version != kStateVersion) {
+    return kResultFalse;
+  }
+  for (int32 paramId = 0; paramId < kNumParams; paramId++) {
+    double value;
+    if (!streamer.readDouble(value)) {
+      return kResultFalse;
+    }
+    applyParameter(paramId, value);
+  }
+  return kResultTrue;
 }
 
 void PDProcessor::updateDetune() {
