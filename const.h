@@ -9,7 +9,8 @@ constexpr double kA4Freq = 440.0;
 constexpr double kEpsilon = 0.00001;
 
 // Version tag written at the head of the processor state stream.
-constexpr int kStateVersion = 1;
+// v2 appended kParamCcEditLine; v1 streams are still readable.
+constexpr int kStateVersion = 2;
 
 // Oscilloscope: the processor streams frames of recent output samples to the
 // controller as messages; the editor's scope view renders the latest frame.
@@ -92,7 +93,10 @@ enum ParamId {
   kParamLine1Begin,
   kParamLine2Begin = kParamLine1Begin + kNumLineParams,
 
-  kNumParams = kParamLine2Begin + kNumLineParams
+  // Selects which line the EG MIDI CC blocks address (appended in state v2).
+  kParamCcEditLine = kParamLine2Begin + kNumLineParams,
+
+  kNumParams
 };
 
 enum class Waveform {

@@ -27,6 +27,8 @@ class PDController : public EditController, public IMidiMapping {
   static FUnknown* createInstance(void*);
   tresult PLUGIN_API initialize(FUnknown* context) override;
   tresult PLUGIN_API setComponentState(IBStream* state) override;
+  tresult PLUGIN_API getState(IBStream* state) override;  // UI preferences (skin)
+  tresult PLUGIN_API setState(IBStream* state) override;
   tresult PLUGIN_API setParamNormalized(ParamID tag, ParamValue value) override;
   tresult PLUGIN_API notify(IMessage* message) override;
   IPlugView* PLUGIN_API createView(FIDString name) override;
@@ -38,6 +40,8 @@ class PDController : public EditController, public IMidiMapping {
   void setActiveEditor(PDEditor* editor);
   // Copies the latest oscilloscope frame received from the processor.
   void copyScopeData(std::vector<float>& out);
+  void setSkinIndex(int32 index);
+  int32 getSkinIndex() const;
 
   OBJ_METHODS(PDController, EditController)
   DEFINE_INTERFACES
@@ -49,6 +53,7 @@ class PDController : public EditController, public IMidiMapping {
   PDEditor* activeEditor_ = nullptr;
   std::mutex scopeMutex_;
   std::vector<float> scopeData_;
+  int32 skinIndex_ = 0;
 };
 
 }  // namespace Vst

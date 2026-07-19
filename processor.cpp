@@ -114,7 +114,7 @@ void PDProcessor::applyParameter(int32 paramId, ParamValue value) {
   } else if (paramId == kParamDetuneFine) {
     detuneFine_ = decodeSignedOption(value, kDetuneFineRange);
     updateDetune();
-  } else {  // kParamLine1Begin <= paramId < kNumParams
+  } else if (kParamLine1Begin <= paramId && paramId < kParamCcEditLine) {
     int32 rel = paramId - kParamLine1Begin;
     int32 line = rel / kNumLineParams;
     int32 offset = rel % kNumLineParams;
@@ -122,6 +122,7 @@ void PDProcessor::applyParameter(int32 paramId, ParamValue value) {
       voice.setLineParam(line, offset, value);
     }
   }
+  // kParamCcEditLine only affects the controller's MIDI CC routing.
 }
 
 void PDProcessor::processParameter(IParameterChanges* changes) {
@@ -166,10 +167,18 @@ tresult PLUGIN_API PDProcessor::setState(IBStream* state) {
 
   IBStreamer streamer(state, kLittleEndian);
   int32 version;
-  if (!streamer.readInt32(version) || version != kStateVersion) {
+  if (!streamer.readInt32(version)) {
     return kResultFalse;
   }
-  for (int32 paramId = 0; paramId < kNumParams; paramId++) {
+  int32 numParams;
+  if (version == kStateVersion) {
+    numParams = kNumParams;
+  } else if (version == 1) {  // v1 predates kParamCcEditLine
+    numParams = kParamCcEditLine;
+  } else {
+    return kResultFalse;
+  }
+  for (int32 paramId = 0; paramId < numParams; paramId++) {
     double value;
     if (!streamer.readDouble(value)) {
       return kResultFalse;

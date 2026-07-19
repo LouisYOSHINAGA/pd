@@ -164,6 +164,13 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
   addLineParameters(parameters, "L1", kParamLine1Begin);
   addLineParameters(parameters, "L2", kParamLine2Begin);
 
+  // CC edit target: which line the EG MIDI CC blocks address
+  StringListParameter* ccEditLine = new StringListParameter(STR16("CC Edit Line"),
+                                                            kParamCcEditLine);
+  ccEditLine->appendString(STR16("Line 1"));
+  ccEditLine->appendString(STR16("Line 2"));
+  parameters.addParameter(ccEditLine);
+
   return kResultTrue;
 }
 
@@ -175,9 +182,15 @@ IPlugView* PLUGIN_API PDController::createView(FIDString name) {
 }
 
 tresult PLUGIN_API PDController::setParamNormalized(ParamID tag, ParamValue value) {
+  ParamValue previous = getParamNormalized(tag);
   tresult result = EditController::setParamNormalized(tag, value);
   if (activeEditor_ != nullptr) {
     activeEditor_->updateControl(tag, value);
+  }
+  // The EG CC blocks route to the line chosen by CC Edit Line, so the host
+  // must re-query the MIDI CC mapping whenever it changes.
+  if (tag == kParamCcEditLine && previous != value && componentHandler != nullptr) {
+    componentHandler->restartComponent(kMidiCCAssignmentChanged);
   }
   return result;
 }
@@ -217,10 +230,18 @@ tresult PLUGIN_API PDController::setComponentState(IBStream* state) {
 
   IBStreamer streamer(state, kLittleEndian);
   int32 version;
-  if (!streamer.readInt32(version) || version != kStateVersion) {
+  if (!streamer.readInt32(version)) {
     return kResultFalse;
   }
-  for (int32 paramId = 0; paramId < kNumParams; paramId++) {
+  int32 numParams;
+  if (version == kStateVersion) {
+    numParams = kNumParams;
+  } else if (version == 1) {  // v1 predates kParamCcEditLine
+    numParams = kParamCcEditLine;
+  } else {
+    return kResultFalse;
+  }
+  for (int32 paramId = 0; paramId < numParams; paramId++) {
     double value;
     if (!streamer.readDouble(value)) {
       return kResultFalse;
@@ -230,14 +251,54 @@ tresult PLUGIN_API PDController::setComponentState(IBStream* state) {
   return kResultTrue;
 }
 
+// Version tag of the controller's own (UI preference) state stream.
+namespace {
+constexpr int32 kUiStateVersion = 1;
+}  // namespace
+
+tresult PLUGIN_API PDController::getState(IBStream* state) {
+  if (state == nullptr) {
+    return kResultFalse;
+  }
+  IBStreamer streamer(state, kLittleEndian);
+  if (!streamer.writeInt32(kUiStateVersion) || !streamer.writeInt32(skinIndex_)) {
+    return kResultFalse;
+  }
+  return kResultTrue;
+}
+
+tresult PLUGIN_API PDController::setState(IBStream* state) {
+  if (state == nullptr) {
+    return kResultFalse;
+  }
+  IBStreamer streamer(state, kLittleEndian);
+  int32 version;
+  int32 skinIndex;
+  if (!streamer.readInt32(version) || version != kUiStateVersion
+      || !streamer.readInt32(skinIndex)) {
+    return kResultFalse;
+  }
+  skinIndex_ = skinIndex;
+  return kResultTrue;
+}
+
+void PDController::setSkinIndex(int32 index) {
+  skinIndex_ = index;
+}
+
+int32 PDController::getSkinIndex() const {
+  return skinIndex_;
+}
+
 namespace {
 
 // MIDI CC assignment of the EG parameters. Each EG occupies one contiguous
 // CC block laid out like the EG parameter sub-block itself (8 rates, 7
-// levels, sustain point, end point); the MIDI channel selects the line
-// (channel 1 = line 1, channel 2 = line 2). The chosen ranges avoid every
-// CC with a conventional meaning (mod wheel, pedals, sound controllers,
-// RPN/NRPN, channel mode messages, ...).
+// levels, sustain point, end point); the line the block addresses is chosen
+// by the CC Edit Line parameter, as on hardware where the panel selects the
+// line being edited. The chosen ranges avoid every CC with a conventional
+// meaning (mod wheel, pedals, sound controllers, RPN/NRPN, channel mode
+// messages, ...).
 constexpr CtrlNumber kEgCcBlockFirst[] = {
   14,   // DCO EG: CC 14-30
   46,   // DCW EG: CC 46-62
@@ -261,7 +322,6 @@ int32 lineParamOffsetForCc(CtrlNumber cc) {
 tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int16 channel,
                                                              CtrlNumber midiControllerNumber,
                                                              ParamID& id) {
-  // channel-independent assignments
   switch (midiControllerNumber) {
     case kPitchBend:
       id = kParamPitchBend;
@@ -273,13 +333,12 @@ tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int
       break;
   }
 
-  // EG parameters: MIDI channel 1 controls line 1, channel 2 controls line 2
-  if (channel == 0 || channel == 1) {
-    int32 offset = lineParamOffsetForCc(midiControllerNumber);
-    if (offset >= 0) {
-      id = (channel == 0 ? kParamLine1Begin : kParamLine2Begin) + offset;
-      return kResultTrue;
-    }
+  // EG parameters address the line currently chosen by CC Edit Line
+  int32 offset = lineParamOffsetForCc(midiControllerNumber);
+  if (offset >= 0) {
+    bool editLine2 = decodeOptionIndex(getParamNormalized(kParamCcEditLine), 2) == 1;
+    id = (editLine2 ? kParamLine2Begin : kParamLine1Begin) + offset;
+    return kResultTrue;
   }
 
   return kResultFalse;
