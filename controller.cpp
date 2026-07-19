@@ -6,6 +6,8 @@
 #include "base/source/fstreamer.h"
 #include "pluginterfaces/base/ustring.h"
 #include "pluginterfaces/vst/ivstmessage.h"
+#include "public.sdk/source/common/memorystream.h"
+#include "public.sdk/source/vst/vstpresetfile.h"
 #include "const.h"
 #include "config.h"
 #include "editor.h"
@@ -288,6 +290,51 @@ void PDController::setSkinIndex(int32 index) {
 
 int32 PDController::getSkinIndex() const {
   return skinIndex_;
+}
+
+bool PDController::savePresetFile(const char* path) {
+  IBStream* file = FileStream::open(path, "wb");
+  if (file == nullptr) {
+    return false;
+  }
+
+  // synthesize the processor state stream from the current parameter values
+  MemoryStream componentState;
+  IBStreamer streamer(&componentState, kLittleEndian);
+  bool ok = streamer.writeInt32(kStateVersion);
+  for (int32 paramId = 0; ok && paramId < kNumParams; paramId++) {
+    ok = streamer.writeDouble(getParamNormalized(paramId));
+  }
+  if (ok) {
+    componentState.seek(0, IBStream::kIBSeekSet, nullptr);
+    ok = PresetFile::savePreset(file, ProcessorUID, &componentState);
+  }
+  file->release();
+  return ok;
+}
+
+bool PDController::loadPresetFile(const char* path) {
+  IBStream* file = FileStream::open(path, "rb");
+  if (file == nullptr) {
+    return false;
+  }
+
+  PresetFile presetFile(file);
+  bool ok = presetFile.readChunkList()
+         && presetFile.restoreComponentState(static_cast<IEditController*>(this));
+  file->release();
+  if (!ok) {
+    return false;
+  }
+
+  // propagate the restored values to the host and the processor
+  for (int32 paramId = 0; paramId < kNumParams; paramId++) {
+    ParamValue value = getParamNormalized(paramId);
+    beginEdit(paramId);
+    performEdit(paramId, value);
+    endEdit(paramId);
+  }
+  return true;
 }
 
 namespace {

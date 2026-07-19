@@ -43,6 +43,11 @@ class PDController : public EditController, public IMidiMapping {
   void setSkinIndex(int32 index);
   int32 getSkinIndex() const;
 
+  // Saves/loads all parameters as a standard .vstpreset file. Loading also
+  // pushes every parameter to the host/processor.
+  bool savePresetFile(const char* path);
+  bool loadPresetFile(const char* path);
+
   OBJ_METHODS(PDController, EditController)
   DEFINE_INTERFACES
   DEF_INTERFACE(IMidiMapping)

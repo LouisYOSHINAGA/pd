@@ -3,9 +3,11 @@
 #include <cmath>
 #include <cstdio>
 
+#include "vstgui/lib/cfileselector.h"
 #include "vstgui/lib/cframe.h"
 #include "vstgui/lib/cgradient.h"
 #include "vstgui/lib/cgraphicspath.h"
+#include "vstgui/lib/controls/cbuttons.h"
 #include "vstgui/lib/controls/cknob.h"
 #include "vstgui/lib/controls/coptionmenu.h"
 #include "vstgui/lib/controls/csegmentbutton.h"
@@ -20,11 +22,13 @@ using namespace VSTGUI;
 
 namespace {
 
-constexpr int kEditorWidth = 1000;
-constexpr int kEditorHeight = 640;
+constexpr int kEditorWidth = 1048;
+constexpr int kEditorHeight = 744;
 
-// tag of the skin selector, outside the parameter id space
+// tags outside the parameter id space
 constexpr int32_t kSkinMenuTag = 100000;
+constexpr int32_t kPresetSaveTag = 100001;
+constexpr int32_t kPresetLoadTag = 100002;
 
 const PDSkin kSkins[] = {
   {
@@ -62,27 +66,28 @@ const PDSkin kSkins[] = {
     {CColor(28, 152, 74), CColor(24, 128, 200), CColor(206, 58, 50)},
   },
   {
+    // Modeled after the CZ-101 hardware: metallic grey panel with black
+    // print, charcoal body, beige data keys, and a pale green LCD.
     "CZ",
-    CColor(40, 38, 36),     // bg (warm charcoal, CZ-1000 panel)
-    CColor(52, 49, 46),     // panel
-    CColor(66, 62, 58),     // control
-    CColor(96, 90, 84),     // controlFrame
-    CColor(238, 232, 220),  // text (cream)
-    CColor(158, 150, 140),  // textDim
-    CColor(226, 62, 46),    // accent (CZ data-key red)
-    CColor(248, 244, 236),  // accentText
-    CColor(32, 30, 28),     // knobBody
-    CColor(240, 234, 220),  // knobPointer
-    CColor(14, 13, 12),     // scopeBg
-    CColor(42, 38, 32),     // scopeGrid
-    CColor(255, 190, 74),   // scopeTrace (amber display)
-    {CColor(122, 200, 112), CColor(114, 188, 220), CColor(238, 116, 92)},
+    CColor(97, 99, 103),    // bg (brushed body grey)
+    CColor(137, 140, 144),  // panel (metallic grey)
+    CColor(227, 219, 197),  // control (beige data keys)
+    CColor(84, 86, 90),     // controlFrame
+    CColor(26, 27, 30),     // text (black print)
+    CColor(56, 58, 62),     // textDim
+    CColor(45, 45, 48),     // accent (pressed charcoal key)
+    CColor(238, 232, 218),  // accentText (cream on charcoal)
+    CColor(52, 53, 56),     // knobBody (charcoal)
+    CColor(235, 230, 216),  // knobPointer (cream)
+    CColor(163, 175, 146),  // scopeBg (LCD green)
+    CColor(142, 154, 124),  // scopeGrid
+    CColor(38, 54, 34),     // scopeTrace (dark LCD segments)
+    {CColor(18, 112, 52), CColor(16, 88, 160), CColor(168, 38, 34)},
   },
 };
 constexpr int32 kNumSkins = sizeof(kSkins) / sizeof(kSkins[0]);
 
-const char* const kEgTitles[] = {"DCO ENVELOPE / PITCH", "DCW ENVELOPE / TIMBRE",
-                                 "DCA ENVELOPE / AMP"};
+const char* const kEgTitles[] = {"DCO ENVELOPE", "DCW ENVELOPE", "DCA ENVELOPE"};
 
 const std::vector<std::string> kWaveformEntries = {
   "1 Saw Tooth", "2 Square", "3 Pulse", "4 Double Sine", "5 Saw Pulse",
@@ -90,7 +95,7 @@ const std::vector<std::string> kWaveformEntries = {
 };
 
 SharedPointer<CFontDesc> makeFont(double size, bool bold) {
-  return makeOwned<CFontDesc>("Segoe UI", size, bold ? kBoldFace : kNormalFace);
+  return makeOwned<CFontDesc>("Consolas", size, bold ? kBoldFace : kNormalFace);
 }
 
 // Flat knob with a solid body, pointer line and value arc: compact but with
@@ -121,7 +126,7 @@ class PDKnob : public CKnob {
     // value arc track (outer ring)
     CRect arcRect = square;
     arcRect.inset(1.5, 1.5);
-    context->setLineWidth(2.4);
+    context->setLineWidth(2.6);
     context->setFrameColor(track_);
     if (CGraphicsPath* track = context->createGraphicsPath()) {
       track->addArc(arcRect, kStartDeg, kStartDeg + kSweepDeg, true);
@@ -142,7 +147,7 @@ class PDKnob : public CKnob {
 
     // body with rim
     CRect body = square;
-    body.inset(5.5, 5.5);
+    body.inset(6.0, 6.0);
     context->setFillColor(body_);
     context->drawEllipse(body, kDrawFilled);
     context->setLineWidth(1.0);
@@ -155,10 +160,10 @@ class PDKnob : public CKnob {
     CPoint center(square.left + side / 2, square.top + side / 2);
     double radius = body.getWidth() / 2;
     CPoint dir(cos(angle), sin(angle));
-    CPoint inner(center.x + dir.x * radius * 0.30, center.y + dir.y * radius * 0.30);
+    CPoint inner(center.x + dir.x * radius * 0.28, center.y + dir.y * radius * 0.28);
     CPoint outer(center.x + dir.x * radius * 0.92, center.y + dir.y * radius * 0.92);
     context->setLineStyle(CLineStyle(CLineStyle::kLineCapRound));
-    context->setLineWidth(2.4);
+    context->setLineWidth(2.6);
     context->setFrameColor(pointer_);
     context->drawLine(std::make_pair(inner, outer));
 
@@ -309,7 +314,7 @@ CControl* PDEditor::addKnob(CViewContainer* parent, const CRect& rect, ParamID t
   PDKnob* knob = new PDKnob(rect, this, tag, skin(), coronaColor, bipolar);
   knob->setTooltipText(tooltip);
   parent->addView(knob);
-  bindings_[tag] = Binding{knob, 0};
+  bindings_[tag] = Binding{knob, 0, nullptr, 0};
   return knob;
 }
 
@@ -327,7 +332,7 @@ CControl* PDEditor::addLevelSlider(CViewContainer* parent, const CRect& rect, Pa
   slider->setFrameWidth(1.0);
   slider->setTooltipText(tooltip);
   parent->addView(slider);
-  bindings_[tag] = Binding{slider, 0};
+  bindings_[tag] = Binding{slider, 0, nullptr, 0};
   return slider;
 }
 
@@ -345,7 +350,7 @@ void PDEditor::addMenu(CViewContainer* parent, const CRect& rect, ParamID tag,
   menu->setStyle(CParamDisplay::kRoundRectStyle);
   menu->setRoundRectRadius(3.0);
   parent->addView(menu);
-  bindings_[tag] = Binding{menu, static_cast<int32>(entries.size())};
+  bindings_[tag] = Binding{menu, static_cast<int32>(entries.size()), nullptr, 0};
 }
 
 void PDEditor::addSegmentButton(CViewContainer* parent, const CRect& rect, ParamID tag,
@@ -357,7 +362,7 @@ void PDEditor::addSegmentButton(CViewContainer* parent, const CRect& rect, Param
     button->addSegment(std::move(segment));
   }
   button->setFont(makeFont(11, true));
-  button->setTextColor(skin().textDim);
+  button->setTextColor(skin().text);
   button->setTextColorHighlighted(skin().accentText);
   button->setFrameColor(skin().controlFrame);
   button->setFrameWidth(1.0);
@@ -365,52 +370,104 @@ void PDEditor::addSegmentButton(CViewContainer* parent, const CRect& rect, Param
   button->setGradient(CGradient::create(0, 1, skin().control, skin().control));
   button->setGradientHighlighted(CGradient::create(0, 1, skin().accent, skin().accent));
   parent->addView(button);
-  bindings_[tag] = Binding{button, 0};
+  bindings_[tag] = Binding{button, 0, nullptr, 0};
+}
+
+void PDEditor::addTextButton(CViewContainer* parent, const CRect& rect, int32_t tag,
+                             const char* title) {
+  CTextButton* button = new CTextButton(rect, this, tag, title, CTextButton::kKickStyle);
+  button->setFont(makeFont(10, true));
+  button->setTextColor(skin().text);
+  button->setTextColorHighlighted(skin().accentText);
+  button->setFrameColor(skin().controlFrame);
+  button->setFrameColorHighlighted(skin().controlFrame);
+  button->setRoundRadius(3.0);
+  button->setGradient(CGradient::create(0, 1, skin().control, skin().control));
+  button->setGradientHighlighted(CGradient::create(0, 1, skin().accent, skin().accent));
+  parent->addView(button);
+}
+
+void PDEditor::attachValueLabel(CViewContainer* parent, const CRect& rect, ParamID tag,
+                                int32 signedRange) {
+  CTextLabel* label = addLabel(parent, rect, "", skin().text, 9, false, kCenterText);
+  auto it = bindings_.find(tag);
+  if (it != bindings_.end()) {
+    it->second.valueLabel = label;
+    it->second.signedRange = signedRange;
+  }
+}
+
+void PDEditor::refreshValueLabel(ParamID tag, ParamValue value) {
+  auto it = bindings_.find(tag);
+  if (it == bindings_.end() || it->second.valueLabel == nullptr) {
+    return;
+  }
+
+  char text[16];
+  if (it->second.signedRange > 0) {
+    int plain = decodeSignedOption(value, it->second.signedRange);
+    if (plain == 0) {
+      snprintf(text, sizeof(text), "0");
+    } else {
+      snprintf(text, sizeof(text), "%+d", plain);
+    }
+  } else {
+    snprintf(text, sizeof(text), "%d", static_cast<int>(lround(value * 99.0)));
+  }
+  it->second.valueLabel->setText(text);
+  it->second.valueLabel->invalid();
 }
 
 void PDEditor::buildHeader(CFrame* frame) {
-  addLabel(frame, CRect(24, 8, 110, 54), "PD", skin().text, 34, true);
-  addLabel(frame, CRect(114, 12, 460, 26), "CZ SERIES TRIBUTE", skin().accent, 9, true);
-  addLabel(frame, CRect(114, 28, 460, 42), "PHASE DISTORTION SYNTHESIZER", skin().textDim, 10);
+  addLabel(frame, CRect(24, 8, 120, 56), "PD", skin().text, 36, true);
+  addLabel(frame, CRect(126, 12, 470, 26), "CZ SERIES TRIBUTE", skin().accent, 9, true);
+  addLabel(frame, CRect(126, 28, 470, 42), "PHASE DISTORTION SYNTHESIZER", skin().textDim, 10);
 
-  addKnob(frame, CRect(600, 10, 640, 50), kParamVolume, skin().accent, false, "Volume");
-  addLabel(frame, CRect(588, 50, 652, 62), "VOLUME", skin().textDim, 8, false, kCenterText);
+  addLabel(frame, CRect(490, 12, 606, 24), "PRESET", skin().textDim, 9, true);
+  addTextButton(frame, CRect(490, 28, 544, 50), kPresetSaveTag, "SAVE");
+  addTextButton(frame, CRect(552, 28, 606, 50), kPresetLoadTag, "LOAD");
 
-  OscilloscopeView* scope = new OscilloscopeView(CRect(672, 6, 976, 60), pdController(), skin());
+  addKnob(frame, CRect(636, 8, 680, 52), kParamVolume, skin().accent, false, "Volume");
+  addLabel(frame, CRect(616, 52, 700, 62), "VOLUME", skin().textDim, 8, false, kCenterText);
+  attachValueLabel(frame, CRect(684, 22, 716, 38), kParamVolume);
+
+  OscilloscopeView* scope = new OscilloscopeView(CRect(730, 6, 1040, 62), pdController(), skin());
   frame->addView(scope);
 }
 
 void PDEditor::buildGlobalRow(CFrame* frame) {
-  addLabel(frame, CRect(24, 76, 140, 88), "LINE SELECT", skin().textDim, 9, true);
-  addSegmentButton(frame, CRect(24, 92, 272, 122), kParamLineSelect,
+  addLabel(frame, CRect(24, 78, 140, 90), "LINE SELECT", skin().textDim, 9, true);
+  addSegmentButton(frame, CRect(24, 94, 272, 126), kParamLineSelect,
                    {"1", "2", "1+1'", "1+2'"});
 
-  addLabel(frame, CRect(300, 76, 390, 88), "KEY ASSIGN", skin().textDim, 9, true);
-  addSegmentButton(frame, CRect(300, 92, 420, 122), kParamMonoPoly, {"POLY", "MONO"});
+  addLabel(frame, CRect(300, 78, 390, 90), "KEY ASSIGN", skin().textDim, 9, true);
+  addSegmentButton(frame, CRect(300, 94, 420, 126), kParamMonoPoly, {"POLY", "MONO"});
 
-  addLabel(frame, CRect(452, 76, 512, 88), "DETUNE", skin().textDim, 9, true);
+  addLabel(frame, CRect(452, 78, 512, 90), "DETUNE", skin().textDim, 9, true);
   const struct {
     ParamID tag;
+    int32 range;
     const char* label;
     const char* tooltip;
   } detunes[] = {
-    {kParamDetuneOctave, "OCT", "Detune Octave"},
-    {kParamDetuneNote, "NOTE", "Detune Note"},
-    {kParamDetuneFine, "FINE", "Detune Fine"},
+    {kParamDetuneOctave, kDetuneOctaveRange, "OCT", "Detune Octave"},
+    {kParamDetuneNote, kDetuneNoteRange, "NOTE", "Detune Note"},
+    {kParamDetuneFine, kDetuneFineRange, "FINE", "Detune Fine"},
   };
   double x = 452;
   for (const auto& detune : detunes) {
-    addKnob(frame, CRect(x, 90, x + 34, 124), detune.tag, skin().eg[1], true, detune.tooltip);
-    addLabel(frame, CRect(x - 6, 126, x + 40, 138), detune.label, skin().textDim, 8, false,
+    addKnob(frame, CRect(x, 92, x + 38, 130), detune.tag, skin().eg[1], true, detune.tooltip);
+    addLabel(frame, CRect(x - 8, 132, x + 46, 143), detune.label, skin().textDim, 8, false,
              kCenterText);
-    x += 52;
+    attachValueLabel(frame, CRect(x - 8, 143, x + 46, 156), detune.tag, detune.range);
+    x += 58;
   }
 
-  addLabel(frame, CRect(640, 76, 740, 88), "CC EDIT", skin().textDim, 9, true);
-  addSegmentButton(frame, CRect(640, 92, 762, 122), kParamCcEditLine, {"LINE 1", "LINE 2"});
+  addLabel(frame, CRect(660, 78, 760, 90), "CC EDIT", skin().textDim, 9, true);
+  addSegmentButton(frame, CRect(660, 94, 782, 126), kParamCcEditLine, {"LINE 1", "LINE 2"});
 
-  addLabel(frame, CRect(806, 76, 856, 88), "SKIN", skin().textDim, 9, true);
-  COptionMenu* skinMenu = new COptionMenu(CRect(806, 92, 906, 114), this, kSkinMenuTag);
+  addLabel(frame, CRect(830, 78, 880, 90), "SKIN", skin().textDim, 9, true);
+  COptionMenu* skinMenu = new COptionMenu(CRect(830, 94, 930, 116), this, kSkinMenuTag);
   for (int32 i = 0; i < kNumSkins; i++) {
     skinMenu->addEntry(kSkins[i].name);
   }
@@ -426,19 +483,19 @@ void PDEditor::buildGlobalRow(CFrame* frame) {
 }
 
 void PDEditor::buildLinePanel(CFrame* frame, double x, int32 lineBase, const char* title) {
-  CViewContainer* panel = new CViewContainer(CRect(x, 150, x + 488, 628));
+  CViewContainer* panel = new CViewContainer(CRect(x, 166, x + 512, 736));
   panel->setBackgroundColor(skin().panel);
   frame->addView(panel);
 
-  addLabel(panel, CRect(12, 5, 110, 23), title, skin().accent, 12, true);
+  addLabel(panel, CRect(12, 5, 120, 23), title, skin().accent, 13, true);
 
   // waveform selectors
-  addLabel(panel, CRect(140, 8, 194, 20), "WAVE 1st", skin().textDim, 9);
-  addMenu(panel, CRect(194, 4, 304, 24), lineBase + kLineParamWaveformFirst, kWaveformEntries);
-  addLabel(panel, CRect(316, 8, 346, 20), "2nd", skin().textDim, 9);
+  addLabel(panel, CRect(146, 8, 206, 20), "WAVE 1st", skin().textDim, 9);
+  addMenu(panel, CRect(206, 4, 322, 24), lineBase + kLineParamWaveformFirst, kWaveformEntries);
+  addLabel(panel, CRect(334, 8, 364, 20), "2nd", skin().textDim, 9);
   std::vector<std::string> secondEntries = {"Off"};
   secondEntries.insert(secondEntries.end(), kWaveformEntries.begin(), kWaveformEntries.end());
-  addMenu(panel, CRect(346, 4, 456, 24), lineBase + kLineParamWaveformSecond, secondEntries);
+  addMenu(panel, CRect(364, 4, 480, 24), lineBase + kLineParamWaveformSecond, secondEntries);
 
   // sustain/end option lists shared by the three EG strips
   std::vector<std::string> sustainEntries = {"Off"};
@@ -451,7 +508,7 @@ void PDEditor::buildLinePanel(CFrame* frame, double x, int32 lineBase, const cha
   }
 
   for (int32 egIndex = 0; egIndex < 3; egIndex++) {
-    double top = 34 + egIndex * 148;
+    double top = 34 + egIndex * 178;
     int32 egBase = lineBase + kLineParamEgBegin + egIndex * kLineParamEgBlockSize;
     const CColor& accent = skin().eg[egIndex];
     char tooltip[64];
@@ -461,40 +518,43 @@ void PDEditor::buildLinePanel(CFrame* frame, double x, int32 lineBase, const cha
     strip.endTag = egBase + kEgParamEndPoint;
     strip.egIndex = egIndex;
 
-    addLabel(panel, CRect(12, top, 340, top + 13), kEgTitles[egIndex], accent, 9, true);
+    addLabel(panel, CRect(12, top, 340, top + 13), kEgTitles[egIndex], accent, 10, true);
 
     // level sliders (top row) above their step's rate dial column
-    addLabel(panel, CRect(10, top + 42, 52, top + 54), "LEVEL", skin().textDim, 8);
+    addLabel(panel, CRect(8, top + 48, 52, top + 60), "LEVEL", skin().textDim, 8);
     for (int i = 0; i < kNumEgLevelParams; i++) {
       snprintf(tooltip, sizeof(tooltip), "Level %d", i + 1);
-      double kx = 56 + i * 38;
+      double kx = 56 + i * 44;
+      ParamID tag = egBase + kEgParamLevel0 + i;
       strip.levelSliders[i] = addLevelSlider(
-        panel, CRect(kx + 8, top + 16, kx + 24, top + 80),
-        egBase + kEgParamLevel0 + i, accent, tooltip
+        panel, CRect(kx + 13, top + 16, kx + 31, top + 92), tag, accent, tooltip
       );
+      attachValueLabel(panel, CRect(kx - 3, top + 94, kx + 47, top + 106), tag);
     }
 
     // step numbers between sliders and dials; sustain marker appears here
     for (int i = 0; i < kNumEgRateParams; i++) {
-      double kx = 56 + i * 38;
-      strip.stepLabels[i] = addLabel(panel, CRect(kx, top + 82, kx + 30, top + 94),
+      double kx = 56 + i * 44;
+      strip.stepLabels[i] = addLabel(panel, CRect(kx - 3, top + 108, kx + 47, top + 120),
                                      std::to_string(i + 1).c_str(), skin().textDim, 8, false,
                                      kCenterText);
     }
 
     // rate dials (bottom row)
-    addLabel(panel, CRect(10, top + 108, 52, top + 120), "RATE", skin().textDim, 8);
+    addLabel(panel, CRect(8, top + 136, 52, top + 148), "RATE", skin().textDim, 8);
     for (int i = 0; i < kNumEgRateParams; i++) {
       snprintf(tooltip, sizeof(tooltip), "Rate %d", i + 1);
-      double kx = 56 + i * 38;
-      strip.rateKnobs[i] = addKnob(panel, CRect(kx, top + 98, kx + 30, top + 128),
-                                   egBase + kEgParamRate0 + i, accent, false, tooltip);
+      double kx = 56 + i * 44;
+      ParamID tag = egBase + kEgParamRate0 + i;
+      strip.rateKnobs[i] = addKnob(panel, CRect(kx + 5, top + 124, kx + 39, top + 158), tag,
+                                   accent, false, tooltip);
+      attachValueLabel(panel, CRect(kx - 3, top + 160, kx + 47, top + 172), tag);
     }
 
-    addLabel(panel, CRect(372, top + 20, 402, top + 32), "SUS", skin().textDim, 8);
-    addMenu(panel, CRect(402, top + 16, 464, top + 34), strip.sustainTag, sustainEntries);
-    addLabel(panel, CRect(372, top + 58, 402, top + 70), "END", skin().textDim, 8);
-    addMenu(panel, CRect(402, top + 54, 464, top + 72), strip.endTag, endEntries);
+    addLabel(panel, CRect(414, top + 20, 446, top + 32), "SUS", skin().textDim, 8);
+    addMenu(panel, CRect(446, top + 16, 504, top + 34), strip.sustainTag, sustainEntries);
+    addLabel(panel, CRect(414, top + 58, 446, top + 70), "END", skin().textDim, 8);
+    addMenu(panel, CRect(446, top + 54, 504, top + 72), strip.endTag, endEntries);
 
     stripByStyleTag_[strip.sustainTag] = strips_.size();
     stripByStyleTag_[strip.endTag] = strips_.size();
@@ -507,7 +567,7 @@ void PDEditor::buildUi() {
   buildHeader(frame);
   buildGlobalRow(frame);
   buildLinePanel(frame, 8, kParamLine1Begin, "LINE 1");
-  buildLinePanel(frame, 504, kParamLine2Begin, "LINE 2");
+  buildLinePanel(frame, 528, kParamLine2Begin, "LINE 2");
 }
 
 void PDEditor::syncAllControls() {
@@ -562,14 +622,59 @@ void PLUGIN_API PDEditor::close() {
   }
 }
 
+void PDEditor::onSavePreset() {
+  CNewFileSelector* selector = CNewFileSelector::create(frame, CNewFileSelector::kSelectSaveFile);
+  if (selector == nullptr) {
+    return;
+  }
+  selector->setTitle("Save Preset");
+  selector->setDefaultExtension(CFileExtension("VST3 Preset", "vstpreset"));
+  PDController* controller = pdController();
+  selector->run([controller](CNewFileSelector* sel) {
+    if (sel->getNumSelectedFiles() > 0) {
+      controller->savePresetFile(sel->getSelectedFile(0));
+    }
+  });
+  selector->forget();
+}
+
+void PDEditor::onLoadPreset() {
+  CNewFileSelector* selector = CNewFileSelector::create(frame, CNewFileSelector::kSelectFile);
+  if (selector == nullptr) {
+    return;
+  }
+  selector->setTitle("Load Preset");
+  selector->setDefaultExtension(CFileExtension("VST3 Preset", "vstpreset"));
+  PDController* controller = pdController();
+  selector->run([controller](CNewFileSelector* sel) {
+    if (sel->getNumSelectedFiles() > 0) {
+      controller->loadPresetFile(sel->getSelectedFile(0));
+    }
+  });
+  selector->forget();
+}
+
 void PDEditor::valueChanged(CControl* control) {
-  if (control->getTag() == kSkinMenuTag) {
+  int32_t tag = control->getTag();
+  if (tag == kSkinMenuTag) {
     pdController()->setSkinIndex(static_cast<int32>(control->getValue()));
     rebuildUi();
     return;
   }
+  if (tag == kPresetSaveTag) {
+    if (control->getValue() > 0.5f) {
+      onSavePreset();
+    }
+    return;
+  }
+  if (tag == kPresetLoadTag) {
+    if (control->getValue() > 0.5f) {
+      onLoadPreset();
+    }
+    return;
+  }
 
-  auto it = bindings_.find(control->getTag());
+  auto it = bindings_.find(tag);
   if (it == bindings_.end()) {
     return;
   }
@@ -578,19 +683,19 @@ void PDEditor::valueChanged(CControl* control) {
   ParamValue normalized = binding.numOptions > 1
       ? control->getValue() / (binding.numOptions - 1)
       : control->getValueNormalized();
-  getController()->setParamNormalized(control->getTag(), normalized);
-  getController()->performEdit(control->getTag(), normalized);
+  getController()->setParamNormalized(tag, normalized);
+  getController()->performEdit(tag, normalized);
 }
 
 void PDEditor::controlBeginEdit(CControl* control) {
-  if (control->getTag() == kSkinMenuTag) {
+  if (control->getTag() >= kSkinMenuTag) {
     return;
   }
   getController()->beginEdit(control->getTag());
 }
 
 void PDEditor::controlEndEdit(CControl* control) {
-  if (control->getTag() == kSkinMenuTag) {
+  if (control->getTag() >= kSkinMenuTag) {
     return;
   }
   getController()->endEdit(control->getTag());
@@ -646,6 +751,7 @@ void PDEditor::updateControl(ParamID tag, ParamValue value) {
     binding.control->setValueNormalized(static_cast<float>(value));
   }
   binding.control->invalid();
+  refreshValueLabel(tag, value);
 
   auto stripIt = stripByStyleTag_.find(tag);
   if (stripIt != stripByStyleTag_.end()) {

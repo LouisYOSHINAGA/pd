@@ -18,7 +18,7 @@ struct PDSkin {
   const char* name;
   VSTGUI::CColor bg;
   VSTGUI::CColor panel;
-  VSTGUI::CColor control;       // menu / segment body
+  VSTGUI::CColor control;       // menu / button body
   VSTGUI::CColor controlFrame;  // outlines, knob track rings
   VSTGUI::CColor text;
   VSTGUI::CColor textDim;
@@ -49,10 +49,11 @@ class OscilloscopeView : public VSTGUI::CView {
   std::vector<float> frame_;
 };
 
-// Programmatically built editor: header with title/volume/oscilloscope, a
-// global row (line select, key assign, detune, CC edit line, skin), and one
+// Programmatically built editor: header with title/preset/volume/oscilloscope,
+// a global row (line select, key assign, detune, CC edit line, skin), and one
 // panel per line with waveform selectors and the three EG strips (level
-// sliders on top, rate dials below, with sustain/end visualization).
+// sliders on top, rate dials below, with sustain/end visualization and
+// numeric value readouts).
 class PDEditor : public VSTGUIEditor, public VSTGUI::IControlListener {
  public:
   PDEditor(void* controller);
@@ -72,9 +73,13 @@ class PDEditor : public VSTGUIEditor, public VSTGUI::IControlListener {
  private:
   // numOptions > 1 marks an option-menu control whose CControl value is the
   // raw item index; 0 marks a control operating on normalized values.
+  // valueLabel, when set, shows the numeric readout: 0-99 by default, or
+  // -signedRange..+signedRange when signedRange > 0.
   struct Binding {
-    VSTGUI::CControl* control;
-    int32 numOptions;
+    VSTGUI::CControl* control = nullptr;
+    int32 numOptions = 0;
+    VSTGUI::CTextLabel* valueLabel = nullptr;
+    int32 signedRange = 0;
   };
 
   // Views of one EG strip, kept for sustain/end visualization.
@@ -104,12 +109,21 @@ class PDEditor : public VSTGUIEditor, public VSTGUI::IControlListener {
                const std::vector<std::string>& entries);
   void addSegmentButton(VSTGUI::CViewContainer* parent, const VSTGUI::CRect& rect, ParamID tag,
                         const std::vector<std::string>& segments);
+  void addTextButton(VSTGUI::CViewContainer* parent, const VSTGUI::CRect& rect, int32_t tag,
+                     const char* title);
+  // Creates the numeric readout label of a bound control.
+  void attachValueLabel(VSTGUI::CViewContainer* parent, const VSTGUI::CRect& rect, ParamID tag,
+                        int32 signedRange = 0);
+  void refreshValueLabel(ParamID tag, ParamValue value);
+
   void buildHeader(VSTGUI::CFrame* frame);
   void buildGlobalRow(VSTGUI::CFrame* frame);
   void buildLinePanel(VSTGUI::CFrame* frame, double x, int32 lineBase, const char* title);
   void buildUi();
   void rebuildUi();
   void syncAllControls();
+  void onSavePreset();
+  void onLoadPreset();
 
   // Applies the sustain marker and dims/disables the steps beyond the end
   // point of one EG strip.
