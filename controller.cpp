@@ -366,6 +366,12 @@ int32 lineParamOffsetForCc(CtrlNumber cc) {
 
 }  // namespace
 
+namespace {
+// Undefined CC used to switch the edit-target line from a MIDI controller
+// (values 0-63 = line 1, 64-127 = line 2).
+constexpr CtrlNumber kCcEditLineController = 3;
+}  // namespace
+
 tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int16 channel,
                                                              CtrlNumber midiControllerNumber,
                                                              ParamID& id) {
@@ -376,6 +382,9 @@ tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int
     case kCtrlVolume:  // CC 7, the conventional channel volume
       id = kParamVolume;
       return kResultTrue;
+    case kCcEditLineController:
+      id = kParamCcEditLine;
+      return kResultTrue;
     default:
       break;
   }
@@ -383,7 +392,8 @@ tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int
   // EG parameters address the line currently chosen by CC Edit Line
   int32 offset = lineParamOffsetForCc(midiControllerNumber);
   if (offset >= 0) {
-    bool editLine2 = decodeOptionIndex(getParamNormalized(kParamCcEditLine), 2) == 1;
+    // >= 0.5 rather than option decoding: CC values arrive unquantized
+    bool editLine2 = getParamNormalized(kParamCcEditLine) >= 0.5;
     id = (editLine2 ? kParamLine2Begin : kParamLine1Begin) + offset;
     return kResultTrue;
   }
