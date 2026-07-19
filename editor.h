@@ -73,13 +73,14 @@ class PDEditor : public VSTGUIEditor, public VSTGUI::IControlListener {
  private:
   // numOptions > 1 marks an option-menu control whose CControl value is the
   // raw item index; 0 marks a control operating on normalized values.
-  // valueLabel, when set, shows the numeric readout: 0-99 by default, or
-  // -signedRange..+signedRange when signedRange > 0.
+  // valueLabel, when set, is a text-editable numeric readout showing
+  // 0..displayMax, or -signedRange..+signedRange when signedRange > 0.
   struct Binding {
     VSTGUI::CControl* control = nullptr;
     int32 numOptions = 0;
     VSTGUI::CTextLabel* valueLabel = nullptr;
     int32 signedRange = 0;
+    int32 displayMax = 99;
   };
 
   // Views of one EG strip, kept for sustain/end visualization.
@@ -111,10 +112,14 @@ class PDEditor : public VSTGUIEditor, public VSTGUI::IControlListener {
                         const std::vector<std::string>& segments);
   void addTextButton(VSTGUI::CViewContainer* parent, const VSTGUI::CRect& rect, int32_t tag,
                      const char* title);
-  // Creates the numeric readout label of a bound control.
+  // Creates the numeric readout of a bound control; the readout is a text
+  // field, so clicking it allows typing the value directly.
   void attachValueLabel(VSTGUI::CViewContainer* parent, const VSTGUI::CRect& rect, ParamID tag,
-                        int32 signedRange = 0);
+                        int32 signedRange = 0, int32 displayMax = 99);
   void refreshValueLabel(ParamID tag, ParamValue value);
+  // Dims the panel title of a line that is not audible under the current
+  // line mode.
+  void restyleLineTitles();
 
   void buildHeader(VSTGUI::CFrame* frame);
   void buildGlobalRow(VSTGUI::CFrame* frame);
@@ -132,6 +137,7 @@ class PDEditor : public VSTGUIEditor, public VSTGUI::IControlListener {
   std::map<ParamID, Binding> bindings_;
   std::vector<EgStrip> strips_;
   std::map<ParamID, size_t> stripByStyleTag_;  // sustain/end tag -> strip index
+  std::array<VSTGUI::CTextLabel*, 2> lineTitles_{};
 };
 
 }  // namespace Vst
