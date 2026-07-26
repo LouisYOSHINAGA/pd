@@ -98,17 +98,62 @@ CCがどちらのLINEを編集するかは`CC Edit Line`パラメータで選択
 ## Build
 
 ### Environment
-- Windows 10 以降
-- Visual Studio 2022 (v143 toolset、C++17)
+- Windows 11
+- Visual Studio 2026（C++17）
+- [CMake](https://cmake.org/) 4.4.0
 - [VST 3 SDK](https://www.steinberg.net/developers/)
 
+### Directory Layout
+このプロジェクトは、VST3SDKが以下の相対パスに配置されていることを前提としています。
+配置場所が異なる場合は`CMakeLists.txt`内の`vst3sdk_SOURCE_DIR`変更してください。
+
+```
+Prog/
+├── Libs/
+│   └── VST_SDK/
+│       └── vst3sdk/
+└── pd/                  <- 本リポジトリ
+    ├── CMakeLists.txt
+    ├── build/
+    └── ...
+```
+
 ### Procedure
-1. VST 3 SDKを取得し、SDK側のライブラリ（`base.lib`, `sdk.lib`, `sdk_common.lib`, `pluginterfaces.lib`, `vstgui*.lib`）をビルドしておく。
-2. `pd.vcxproj`の以下のpathを自環境のSDK配置に合わせて変更する。
-   - `IncludePath`: `<SDK root>` と `<SDK root>\vstgui4`
-   - `LibraryPath`: SDKライブラリの出力ディレクトリ
-3. Visual Studioで`pd.sln`を開き、`Release | x64`でビルドする。
-4. 生成された`x64\Release\pd.vst3`を`C:\Program Files\Common Files\VST3\`にコピーする。
+1. VST3SDKを取得し、上記のディレクトリ構成に配置する。
+2. ビルド用ディレクトリを作成し、CMakeでVisual Studioのソリューションを生成する。
+
+```bash
+   mkdir build
+   cd build
+   cmake -G "Visual Studio 18 2026" -A x64 ..
+```
+
+※ `build`ディレクトリ内で実行すること（in-sourceビルドは不可）。
+
+※ Generatorはインストール済みのVisual Studioバージョンに合わせて変更可能（`cmake --help`で一覧を確認できる）。
+
+3. ビルド
+
+```bash
+   cmake --build . --config Debug
+   cmake --build . --config Release
+```
+
+もしくは、生成された `build/pd.slnx` をVisual Studioで開いてビルドしてもよい。
+
+4. ビルド後、`.vst3`は自動的に`C:\Users\<username>\AppData\Local\Programs\Common\VST3`以下へコピーされる（`smtg_add_vst3plugin`によるデフォルト設定）。
+
+※ DAW側の検索パスにここが含まれていない場合は、DAWの設定でパスを追加するか、`C:\Program Files\Common Files\VST3\`に手動でコピーする。
+
+### Debug (Attach to Process)
+1. `build/pd.sln` をVisual Studioで開く。
+2. DAW（またはVSTHost等のテストホスト）でプラグインをロードする。
+3. Visual Studio -> デバッグ -> プロセスにアタッチ -> 対象のDAWプロセスを選択。
+4. 適当な箇所にブレークポイントを設定し実行。
+
+### Notes
+- `build/`はCMakeの生成物であり、`CMakeLists.txt`から再生成可能なためバージョン管理対象外。
+- GUIは [VSTGUI](https://github.com/steinbergmedia/vstgui) を使用しており、`CMakeLists.txt`内で `SMTG_ENABLE_VSTGUI_SUPPORT` を有効化してビルドしている。
 
 
 ## License
