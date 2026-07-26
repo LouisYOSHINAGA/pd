@@ -8,7 +8,7 @@
 #define MYVST_URL "https://github.com/LouisYOSHINAGA/pd"
 #define MYVST_EMAIL "mailto:9dutat.e@gmail.com"
 #define MYVST_VSTNAME "PD"
-#define MYVST_VERSION "0"
+#define MYVST_VERSION "0.0.0"
 #define MYVST_SUBCATEGORIES Vst::PlugType::kInstrumentSynth
 
 namespace Steinberg {

@@ -338,13 +338,13 @@ CControl* PDEditor::addKnob(CViewContainer* parent, const CRect& rect, ParamID t
   return knob;
 }
 
-CControl* PDEditor::addLevelSlider(CViewContainer* parent, const CRect& rect, ParamID tag,
-                                   const CColor& accent, const char* tooltip) {
+ CControl* PDEditor::addLevelSlider(CViewContainer* parent, const CRect& rect, ParamID tag,
+                                    const CColor& accent, const char* tooltip) {
   CSlider* slider = new CSlider(rect, this, tag,
                                 static_cast<int32_t>(rect.top) + 1,
                                 static_cast<int32_t>(rect.bottom) - 1,
                                 nullptr, nullptr, CPoint(0, 0),
-                                CSlider::kBottom | CSlider::kVertical);
+                                CSlider::Styles({CSlider::kBottom, CSlider::kVertical}));
   slider->setDrawStyle(CSlider::kDrawFrame | CSlider::kDrawBack | CSlider::kDrawValue);
   slider->setFrameColor(skin().controlFrame);
   slider->setBackColor(skin().control);
