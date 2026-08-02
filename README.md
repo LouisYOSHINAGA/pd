@@ -51,7 +51,7 @@ PD音源では、単一のcos波の位相の読み出しを歪ませることで
 ## Parameters
 | パラメータ | 範囲 | 説明 |
 |---|---|---|
-| volume | [0, 1] | master volume |
+| Volume | [0, 1] | master volume |
 | Line Select | {1, 2, 1+1', 1+2'} | LINE構成の選択 |
 | Mono/Poly | Poly / Mono | 発音モード |
 | Detune Octave / Note / Fine | ±3 / ±11 / ±60 | Prime側のLINE（`1'`, `2'`）のdetune |
@@ -71,8 +71,10 @@ PD音源では、単一のcos波の位相の読み出しを歪ませることで
 ### Pitch Bend, Volueme（全channel共通）
 | メッセージ | 割り当て |
 |---|---|
-| Pitch Bend | pitch bend（±2半音）|
-| CC 7 | volume |
+| Pitch Bend | Pitch Bend（±2半音）|
+| CC 7 | [param] Volume |
+| CC 126 | mono mode ([param] Mono/Poly) |
+| CC 127 | poly mode ([param] Mono/Poly) |
 
 ### EG Parameters
 以下のCCが各パラメータに割り当てられている。
@@ -82,8 +84,9 @@ CCがどちらのLINEを編集するかは`CC Edit Line`パラメータで選択
 | 機能 | CC | 説明 |
 |---|---|---|
 | CC Edit Line | CC 3 | 0..63: LINE1, 64..127: LINE2 |
-| Wavefome 1 | CC 89 | waveform 1..8 |
-| Waveform 2 | CC 90 | waveform Off, 1..8 |
+| Line Select | CC 9 | [param] Line Select |
+| Wavefome 1 | CC 89 | [param] L1/L2 Waveform 1st |
+| Waveform 2 | CC 90 | [param] L1/L2 Waveform 2nd |
 
 | Target EG | Rate 1..8 | Lvl 1..7 | Sustain Point | End Point |
 |---|---|---|---|---|
