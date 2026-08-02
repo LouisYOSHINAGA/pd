@@ -51,10 +51,19 @@ class PDProcessor : public AudioEffect {
   // Oscilloscope frame under construction; sent to the controller when full.
   std::array<float, kScopeFrameSize> scopeFrame_{};
   int32 scopeFramePos_ = 0;
+  // Parameter changes seen in the current process() call that actually moved a
+  // value; echoed to the controller at the end of the call.
+  std::array<ParamSyncEntry, kNumParams> pendingSync_{};
+  int32 numPendingSync_ = 0;
 
   // Accumulates one output sample for the editor's oscilloscope and sends
   // the frame to the controller whenever it is full.
   void pushScopeSample(float sample);
+
+  // Sends the parameter changes collected by processParameter to the
+  // controller, so the UI follows values that only reach the processor
+  // (MIDI CC mapped parameters).
+  void sendParamSync();
 
   // Stores and dispatches one normalized parameter value; the single entry
   // point shared by host automation (processParameter) and setState.

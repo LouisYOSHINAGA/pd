@@ -227,9 +227,47 @@ void PDController::setActiveEditor(PDEditor* editor) {
   activeEditor_ = editor;
 }
 
+void PDController::applyParamFromProcessor(ParamID id, ParamValue value) {
+  // Already known: nothing to redraw.
+  if (getParamNormalized(id) == value) {
+    return;
+  }
+
+  // Updates the parameter and, through it, the editor; for the Mono/Poly
+  // triggers this is also what runs the trigger handling.
+  //
+  // Deliberately does not call performEdit: two UI-driven changes to the same
+  // parameter that land in separate process() calls (any two clicks a host
+  // buffer length or more apart, which at typical buffer sizes is most
+  // clicks) would otherwise bounce forever. The processor echoes back
+  // whichever value it just received; if that echo were reported to the host
+  // again here, the host would deliver it to the processor once more on the
+  // next block, which would echo it back once more, and so on -- the two
+  // values would keep swapping instead of ever settling. The UI only ever
+  // needs the controller's own value (set here) to stay right; the host's
+  // automation/generic display not tracking MIDI-CC-driven changes is the
+  // trade-off for that.
+  setParamNormalized(id, value);
+}
+
 tresult PLUGIN_API PDController::notify(IMessage* message) {
   if (message == nullptr) {
     return kInvalidArgument;
+  }
+
+  // Parameter values the processor received directly (MIDI CC mapped through
+  // IMidiMapping never reaches the controller by itself).
+  if (strcmp(message->getMessageID(), kParamSyncMessageId) == 0) {
+    const void* data = nullptr;
+    uint32 size = 0;
+    if (message->getAttributes()->getBinary(kParamSyncMessageDataAttr, data, size) == kResultTrue) {
+      const ParamSyncEntry* entries = static_cast<const ParamSyncEntry*>(data);
+      const uint32 numEntries = size / sizeof(ParamSyncEntry);
+      for (uint32 i = 0; i < numEntries; i++) {
+        applyParamFromProcessor(entries[i].id, entries[i].value);
+      }
+    }
+    return kResultTrue;
   }
 
   if (strcmp(message->getMessageID(), kScopeMessageId) == 0) {

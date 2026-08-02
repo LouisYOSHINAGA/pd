@@ -59,6 +59,10 @@ class PDController : public EditController, public IMidiMapping {
   std::mutex scopeMutex_;
   std::vector<float> scopeData_;
   int32 skinIndex_ = 0;
+
+  // Applies one parameter value echoed by the processor: updates the UI and,
+  // for parameters the host tracks, reports the new value to the host.
+  void applyParamFromProcessor(ParamID id, ParamValue value);
 };
 
 }  // namespace Vst

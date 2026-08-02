@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 namespace Steinberg {
 namespace Vst {
 
@@ -18,10 +20,33 @@ constexpr int kScopeFrameSize = 1024;
 constexpr const char* kScopeMessageId = "oscilloscope";
 constexpr const char* kScopeMessageDataAttr = "data";
 
+// Parameter feedback: a MIDI CC mapped through IMidiMapping is turned into a
+// parameter change by the host and delivered to the processor only; whether
+// the edit controller is told about it is host dependent, and most hosts do
+// not. The processor therefore echoes every parameter change it receives back
+// to the controller, which updates the UI.
+constexpr const char* kParamSyncMessageId = "paramsync";
+constexpr const char* kParamSyncMessageDataAttr = "data";
+
+// One echoed parameter value. Sent as a raw array, so both sides must be
+// built together (they always are: same binary).
+struct ParamSyncEntry {
+  int32_t id;
+  double value;
+};
+
 // Decodes the normalized value of a discrete parameter with `numOptions`
-// states into its option index (0 .. numOptions-1).
+// states into its option index (0 .. numOptions-1). Splits the normalized
+// range into numOptions equal-width buckets, so a continuously-varying
+// source (MIDI CC, host automation) lands on every option with the same
+// odds; this also reproduces index exactly for every normalized value a
+// control sends by the index/(numOptions-1) convention (menus, segment
+// buttons, StringListParameter), since index * numOptions/(numOptions-1)
+// only reaches the next integer when index is the last option, and the
+// clamp catches that case.
 inline int decodeOptionIndex(double normalized, int numOptions) {
-  return static_cast<int>(normalized * (numOptions - 1) + kEpsilon);
+  int index = static_cast<int>(normalized * numOptions + kEpsilon);
+  return index < numOptions ? index : numOptions - 1;
 }
 
 // Decodes the normalized value of a symmetric signed discrete parameter

@@ -77,6 +77,7 @@ tresult PLUGIN_API PDProcessor::setBusArrangements(SpeakerArrangement* inputs, i
 
 tresult PLUGIN_API PDProcessor::process(ProcessData& data) {
   processParameter(data.inputParameterChanges);
+  sendParamSync();
   processEvent(data.inputEvents);
   processReplacing(data);
   return kResultTrue;
@@ -127,6 +128,7 @@ void PDProcessor::applyParameter(int32 paramId, ParamValue value) {
 }
 
 void PDProcessor::processParameter(IParameterChanges* changes) {
+  numPendingSync_ = 0;
   if (changes == nullptr) {
     return;
   }
@@ -142,8 +144,38 @@ void PDProcessor::processParameter(IParameterChanges* changes) {
     if (queue->getPoint(queue->getPointCount() - 1, sampleOffset, value) == kResultFalse) {
       continue;
     }
-    applyParameter(queue->getParameterId(), value);
+
+    int32 paramId = queue->getParameterId();
+    // Only a real change is worth echoing: a value the controller already
+    // holds (it originated there, or was echoed a moment ago) must not be
+    // sent back, otherwise controller and processor ping-pong forever.
+    bool changed = 0 <= paramId && paramId < kNumParams && paramValues_[paramId] != value;
+    applyParameter(paramId, value);
+    if (changed && numPendingSync_ < kNumParams) {
+      pendingSync_[numPendingSync_++] = ParamSyncEntry{paramId, value};
+    }
+
+    // The Mono/Poly triggers are momentary: pressing the same button twice
+    // sends the same CC value twice, so forget the value right away to keep
+    // the second press a change rather than a no-op.
+    if (paramId == kParamMonoTrigger || paramId == kParamPolyTrigger) {
+      paramValues_[paramId] = 0.0;
+    }
   }
+}
+
+void PDProcessor::sendParamSync() {
+  if (numPendingSync_ == 0) {
+    return;
+  }
+  if (IMessage* message = allocateMessage()) {
+    message->setMessageID(kParamSyncMessageId);
+    message->getAttributes()->setBinary(kParamSyncMessageDataAttr, pendingSync_.data(),
+                                        sizeof(ParamSyncEntry) * numPendingSync_);
+    sendMessage(message);
+    message->release();
+  }
+  numPendingSync_ = 0;
 }
 
 tresult PLUGIN_API PDProcessor::getState(IBStream* state) {

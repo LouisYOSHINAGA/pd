@@ -826,7 +826,15 @@ void PDEditor::updateControl(ParamID tag, ParamValue value) {
   } else {
     binding.control->setValueNormalized(static_cast<float>(value));
   }
-  binding.control->invalid();
+  // invalidRect(), not invalid(): CView::invalid() calls setDirty(false),
+  // which immediately syncs the control's oldValue to its (just-set) new
+  // value. CSegmentButton only refreshes which segment is drawn selected
+  // when its own drawRect() sees oldValue != value, so going through
+  // invalid() here would silently freeze the segment highlight on whatever
+  // it last was, even though the control's underlying value (and the sound)
+  // did change. invalidRect() schedules the same repaint without touching
+  // oldValue, so that check still sees the real change on the next draw.
+  binding.control->invalidRect(binding.control->getViewSize());
   refreshValueLabel(tag, value);
 
   auto stripIt = stripByStyleTag_.find(tag);
