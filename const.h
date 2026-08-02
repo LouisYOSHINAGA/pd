@@ -70,7 +70,7 @@ constexpr int kNumSecondWaveformOptions = 9;
 // The three EG sub-blocks are ordered DCO, DCW, DCA (must match EgKind).
 constexpr int kLineParamWaveformFirst = 0;
 constexpr int kLineParamWaveformSecond = 1;
-constexpr int kLineParamEgBegin = 2;
+constexpr int kLineParamEgBegin = 2;  // = the number of waveform selection parameter
 constexpr int kLineParamEgBlockSize = kNumEgRateParams + kNumEgLevelParams + 2;  // rates, levels, sustain, end
 constexpr int kNumLineParams = kLineParamEgBegin + 3 * kLineParamEgBlockSize;
 // Offsets within one EG sub-block.

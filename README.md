@@ -82,6 +82,8 @@ CCがどちらのLINEを編集するかは`CC Edit Line`パラメータで選択
 | 機能 | CC | 説明 |
 |---|---|---|
 | CC Edit Line | CC 3 | 0..63: LINE1, 64..127: LINE2 |
+| Wavefome 1 | CC 89 | waveform 1..8 |
+| Waveform 2 | CC 90 | waveform Off, 1..8 |
 
 | Target EG | Rate 1..8 | Lvl 1..7 | Sustain Point | End Point |
 |---|---|---|---|---|

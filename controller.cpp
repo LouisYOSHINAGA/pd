@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "base/source/fstreamer.h"
+#include "pluginterfaces/base/funknown.h"
 #include "pluginterfaces/base/ustring.h"
 #include "pluginterfaces/vst/ivstmessage.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
@@ -341,19 +342,30 @@ bool PDController::loadPresetFile(const char* path) {
 }
 
 namespace {
+// CCs with no conventional MIDI meaning, repurposed for edit-target parameters
+// line selection (values 0..63 = line 1, 64..127 = line 2)
+constexpr CtrlNumber kCcEditLineController = 3;
+// first waveform selection (values 0..127 -> waveform {1..8})
+constexpr CtrlNumber kCcEditWaveformFirst = 89;
+// second waveform selection (values 0..127 -> waveform {Off, 1..8})
+constexpr CtrlNumber kCcEditWaveformSecond = 90;
 
-// MIDI CC assignment of the EG parameters. Each EG occupies one contiguous
-// CC block laid out like the EG parameter sub-block itself (8 rates, 7
-// levels, sustain point, end point); the line the block addresses is chosen
-// by the CC Edit Line parameter, as on hardware where the panel selects the
-// line being edited. The chosen ranges avoid every CC with a conventional
-// meaning (mod wheel, pedals, sound controllers, RPN/NRPN, channel mode
-// messages, ...).
+// MIDI CC assignment of the EG parameters.
+// Each EG occupies one contiguous CC block laid out like
+// the EG parameter sub-block itself (8 rates, 7 levels, sustain point, end point);
+// the line the block addresses is chosen by the CC Edit Line parameter,
+// as on hardware where the panel selects the line being edited.
+// The chosen ranges avoid every CC with a conventional meaning
+// (mod wheel, pedals, sound controllers, RPN/NRPN, channel mode messages, ...).
 constexpr CtrlNumber kEgCcBlockFirst[] = {
   14,   // DCO EG: CC 14-30
   46,   // DCW EG: CC 46-62
   102,  // DCA EG: CC 102-118
 };
+
+int32 lineParamBase(ParamValue lineSelCcValue){
+    return (lineSelCcValue < 0.5 ? kParamLine1Begin : kParamLine2Begin);
+}
 
 // Returns the offset within a line parameter block addressed by `cc`,
 // or -1 if the CC is not an EG controller.
@@ -367,12 +379,6 @@ int32 lineParamOffsetForCc(CtrlNumber cc) {
   return -1;
 }
 
-}  // namespace
-
-namespace {
-// Undefined CC used to switch the edit-target line from a MIDI controller
-// (values 0-63 = line 1, 64-127 = line 2).
-constexpr CtrlNumber kCcEditLineController = 3;
 }  // namespace
 
 tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int16 channel,
@@ -392,12 +398,21 @@ tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int
       break;
   }
 
+  // resolve the line-1/2 base id from the CC edit line parameter value
+  int32 idOffset = lineParamBase(getParamNormalized(kParamCcEditLine));
+
+  if (midiControllerNumber == kCcEditWaveformFirst) {
+    id = idOffset + kLineParamWaveformFirst;
+    return kResultTrue;
+  } else if (midiControllerNumber == kCcEditWaveformSecond) {
+    id = idOffset + kLineParamWaveformSecond;
+    return kResultTrue;
+  }
+
   // EG parameters address the line currently chosen by CC Edit Line
-  int32 offset = lineParamOffsetForCc(midiControllerNumber);
-  if (offset >= 0) {
-    // >= 0.5 rather than option decoding: CC values arrive unquantized
-    bool editLine2 = getParamNormalized(kParamCcEditLine) >= 0.5;
-    id = (editLine2 ? kParamLine2Begin : kParamLine1Begin) + offset;
+  int32 lineParamOffset = lineParamOffsetForCc(midiControllerNumber);
+  if (lineParamOffset >= 0) {
+    id = idOffset + lineParamOffset;
     return kResultTrue;
   }
 
