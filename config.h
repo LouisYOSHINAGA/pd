@@ -1,8 +1,6 @@
 #pragma once
 
 #include "pluginterfaces/base/funknown.h"
-#include "processor.h"
-#include "controller.h"
 
 #define MYVST_VENDOR "Nareshika Works"
 #define MYVST_URL "https://github.com/LouisYOSHINAGA/pd"

@@ -2,8 +2,8 @@
 
 #include <mutex>
 #include <vector>
+
 #include "public.sdk/source/vst/vsteditcontroller.h"
-#include "pluginterfaces/vst/ivstmidicontrollers.h"
 
 namespace Steinberg {
 namespace Vst {

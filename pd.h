@@ -2,8 +2,9 @@
 
 #include <array>
 #include <memory>
+
 #include "pluginterfaces/vst/vsttypes.h"
-#include "const.h"
+
 #include "eg.h"
 
 namespace Steinberg {

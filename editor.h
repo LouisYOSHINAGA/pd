@@ -4,8 +4,10 @@
 #include <map>
 #include <string>
 #include <vector>
+
 #include "public.sdk/source/vst/vstguieditor.h"
 #include "vstgui/lib/cvstguitimer.h"
+
 #include "const.h"
 
 namespace Steinberg {

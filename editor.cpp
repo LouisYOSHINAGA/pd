@@ -14,6 +14,7 @@
 #include "vstgui/lib/controls/cslider.h"
 #include "vstgui/lib/controls/ctextedit.h"
 #include "vstgui/lib/controls/ctextlabel.h"
+
 #include "controller.h"
 
 namespace Steinberg {

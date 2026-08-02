@@ -3,9 +3,11 @@
 #include <array>
 #include <cstdint>
 #include <vector>
+
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include "pluginterfaces/vst/ivstevents.h"
+
 #include "const.h"
 #include "voice.h"
 

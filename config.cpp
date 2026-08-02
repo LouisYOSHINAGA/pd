@@ -2,6 +2,9 @@
 
 #include "public.sdk/source/main/pluginfactory.h"
 
+#include "processor.h"
+#include "controller.h"
+
 extern "C" {
 BEGIN_FACTORY_DEF(MYVST_VENDOR, MYVST_URL, MYVST_EMAIL)
   // PDProcessor

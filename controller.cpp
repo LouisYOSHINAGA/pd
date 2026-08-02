@@ -6,8 +6,10 @@
 #include "base/source/fstreamer.h"
 #include "pluginterfaces/base/ustring.h"
 #include "pluginterfaces/vst/ivstmessage.h"
+#include "pluginterfaces/vst/ivstmidicontrollers.h"
 #include "public.sdk/source/common/memorystream.h"
 #include "public.sdk/source/vst/vstpresetfile.h"
+
 #include "const.h"
 #include "config.h"
 #include "editor.h"
@@ -212,7 +214,8 @@ tresult PLUGIN_API PDController::notify(IMessage* message) {
     if (message->getAttributes()->getBinary(kScopeMessageDataAttr, data, size) == kResultTrue) {
       std::lock_guard<std::mutex> lock(scopeMutex_);
       const float* samples = static_cast<const float*>(data);
-      scopeData_.assign(samples, samples + size / sizeof(float));
+      const size_t numSamples = size / sizeof(float);
+      scopeData_.assign(samples, samples + numSamples);
     }
     return kResultTrue;
   }
