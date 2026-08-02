@@ -10,7 +10,7 @@ constexpr double kEpsilon = 0.00001;
 
 // Version tag written at the head of the processor state stream.
 // v2 appended kParamCcEditLine; v1 streams are still readable.
-constexpr int kStateVersion = 2;
+constexpr int kStateVersion = 3;
 
 // Oscilloscope: the processor streams frames of recent output samples to the
 // controller as messages; the editor's scope view renders the latest frame.
@@ -95,6 +95,10 @@ enum ParamId {
 
   // Selects which line the EG MIDI CC blocks address (appended in state v2).
   kParamCcEditLine = kParamLine2Begin + kNumLineParams,
+
+  // Mono/Poly Mode
+  kParamMonoTrigger,  // dummy to receive CC 126 (Mono Mode On)
+  kParamPolyTrigger,  // dummy to receive CC 127 (Poly Mode On)
 
   kNumParams
 };

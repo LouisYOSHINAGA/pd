@@ -151,6 +151,15 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
   monoPoly->appendString(STR16("Mono"));
   parameters.addParameter(monoPoly);
 
+  // dummy parameter to receive CC 126 (Mono Mode On)
+  Parameter* monoTrigger = new Parameter(STR16("Mono Trigger"), kParamMonoTrigger, nullptr, 0.0);
+  monoTrigger->getInfo().flags = ParameterInfo::kIsHidden;
+  parameters.addParameter(monoTrigger);
+  // dummy parameter to receive CC 127 (Poly Mode On)
+  Parameter* polyTrigger = new Parameter(STR16("Poly Trigger"), kParamPolyTrigger, nullptr, 0.0);
+  polyTrigger->getInfo().flags = ParameterInfo::kIsHidden;
+  parameters.addParameter(polyTrigger);
+
   // detune of the primed line (octave/note/fine combine into one offset)
   parameters.addParameter(new DiscreteRangeParameter(
     STR16("Detune Octave"), kParamDetuneOctave, nullptr,
@@ -192,8 +201,22 @@ tresult PLUGIN_API PDController::setParamNormalized(ParamID tag, ParamValue valu
   if (activeEditor_ != nullptr) {
     activeEditor_->updateControl(tag, value);
   }
-  // The EG CC blocks route to the line chosen by CC Edit Line, so the host
-  // must re-query the MIDI CC mapping whenever it changes.
+
+  // Mono/Poly Mode
+  if ((tag == kParamMonoTrigger || tag == kParamPolyTrigger) && value > 0.0 ){
+    ParamValue monoPolyValue = (tag == kParamMonoTrigger)? 1.0 : 0.0;
+    beginEdit(kParamMonoPoly);
+    setParamNormalized(kParamMonoPoly, monoPolyValue);
+    performEdit(kParamMonoPoly, monoPolyValue);
+    endEdit(kParamMonoPoly);
+
+    // Reset the trigger itself so the next press (even with the same CC
+    // value) is seen as a change from 0, not a no-op.
+    EditController::setParamNormalized(tag, 0.0);
+  }
+
+  // The EG CC blocks route to the line chosen by CC Edit Line,
+  // so the host must re-query the MIDI CC mapping whenever it changes.
   if (tag == kParamCcEditLine && previous != value && componentHandler != nullptr) {
     componentHandler->restartComponent(kMidiCCAssignmentChanged);
   }
@@ -242,6 +265,8 @@ tresult PLUGIN_API PDController::setComponentState(IBStream* state) {
   int32 numParams;
   if (version == kStateVersion) {
     numParams = kNumParams;
+  } else if (version == 2) {
+    numParams = kParamMonoTrigger;
   } else if (version == 1) {  // v1 predates kParamCcEditLine
     numParams = kParamCcEditLine;
   } else {
@@ -343,12 +368,18 @@ bool PDController::loadPresetFile(const char* path) {
 
 namespace {
 // CCs with no conventional MIDI meaning, repurposed for edit-target parameters
-// line selection (values 0..63 = line 1, 64..127 = line 2)
+// line selection to be edited by CC (values 0..63 = line 1, 64..127 = line 2)
 constexpr CtrlNumber kCcEditLineController = 3;
+// line selection to be played (values 0..127 -> {1, 2, 1+1', 1+2'})
+constexpr CtrlNumber kLineSelect = 9;
 // first waveform selection (values 0..127 -> waveform {1..8})
 constexpr CtrlNumber kCcEditWaveformFirst = 89;
 // second waveform selection (values 0..127 -> waveform {Off, 1..8})
 constexpr CtrlNumber kCcEditWaveformSecond = 90;
+// mono mode on
+constexpr CtrlNumber kMonoModeOn = 126;
+// poly mode on
+constexpr CtrlNumber kPolyModeOn = 127;
 
 // MIDI CC assignment of the EG parameters.
 // Each EG occupies one contiguous CC block laid out like
@@ -393,6 +424,15 @@ tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int
       return kResultTrue;
     case kCcEditLineController:
       id = kParamCcEditLine;
+      return kResultTrue;
+    case kLineSelect:
+      id = kParamLineSelect;
+      return kResultTrue;
+    case kMonoModeOn:
+      id = kParamMonoTrigger;
+      return kResultTrue;
+    case kPolyModeOn:
+      id = kParamPolyTrigger;
       return kResultTrue;
     default:
       break;
