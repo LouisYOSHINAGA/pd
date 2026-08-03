@@ -410,6 +410,10 @@ namespace {
 constexpr CtrlNumber kCcEditLineController = 3;
 // line selection to be played (values 0..127 -> {1, 2, 1+1', 1+2'})
 constexpr CtrlNumber kLineSelect = 9;
+// detune
+constexpr CtrlNumber kDetuneOctave = 85;
+constexpr CtrlNumber kDetuneNote = 86;
+constexpr CtrlNumber kDetuneFine = 87;
 // first waveform selection (values 0..127 -> waveform {1..8})
 constexpr CtrlNumber kCcEditWaveformFirst = 89;
 // second waveform selection (values 0..127 -> waveform {Off, 1..8})
@@ -471,6 +475,15 @@ tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int
       return kResultTrue;
     case kPolyModeOn:
       id = kParamPolyTrigger;
+      return kResultTrue;
+    case kDetuneOctave:
+      id = kParamDetuneOctave;
+      return kResultTrue;
+    case kDetuneNote:
+      id = kParamDetuneNote;
+      return kResultTrue;
+    case kDetuneFine:
+      id = kParamDetuneFine;
       return kResultTrue;
     default:
       break;

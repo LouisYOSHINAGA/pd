@@ -68,13 +68,12 @@ PD音源では、単一のcos波の位相の読み出しを歪ませることで
 
 ## MIDI Implementation
 
-### Pitch Bend, Volueme（全channel共通）
+### General Parameters
 | メッセージ | 割り当て |
 |---|---|
 | Pitch Bend | Pitch Bend（±2半音）|
 | CC 7 | [param] Volume |
-| CC 126 | mono mode ([param] Mono/Poly) |
-| CC 127 | poly mode ([param] Mono/Poly) |
+| CC {126,127} | {mono,poly} mode ([param] Mono/Poly) |
 
 ### EG Parameters
 以下のCCが各パラメータに割り当てられている。
@@ -85,8 +84,8 @@ CCがどちらのLINEを編集するかは`CC Edit Line`パラメータで選択
 |---|---|---|
 | CC Edit Line | CC 3 | 0..63: LINE1, 64..127: LINE2 |
 | Line Select | CC 9 | [param] Line Select |
-| Wavefome 1 | CC 89 | [param] L1/L2 Waveform 1st |
-| Waveform 2 | CC 90 | [param] L1/L2 Waveform 2nd |
+| Detune {Octave,Note,Fine} | CC {85,86,87} | [param] Detune {Octave,Note,Fine} |
+| Wavefome {1,2} | CC {89,90} | [param] L1/L2 Waveform {1st,2nd} |
 
 | Target EG | Rate 1..8 | Lvl 1..7 | Sustain Point | End Point |
 |---|---|---|---|---|
