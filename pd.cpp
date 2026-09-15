@@ -190,9 +190,6 @@ void PD::setWaveformSecond(int8 selection) {
 
 void PD::setSampleRate(double sampleRate) {
   sampleRate_ = sampleRate;
-  for (EG& eg : egs_) {
-    eg.setSampleRate(sampleRate);
-  }
 }
 
 void PD::resetPhase() {
@@ -217,8 +214,8 @@ double PD::generate(double freq, bool& isDcaEnd) {
 }
 
 void PD::setupEg() {
-  for (EG& eg : egs_) {
-    eg.setup();
+  for (int i = 0; i < static_cast<int>(EgKind::kNumEgKinds); i++) {
+      egs_[i].setup(static_cast<EgKind>(i));
   }
 }
 

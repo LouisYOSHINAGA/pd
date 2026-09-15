@@ -92,15 +92,6 @@ class ResonanceTrapezoidGenerator : public AbstractResonanceGenerator {
   double getEnvelope(double phasetime) override;
 };
 
-// The three envelope generators of one PD line. The enumerator order matches
-// the EG sub-block order of the line parameter layout in const.h.
-enum class EgKind {
-  kDco = 0,
-  kDcw,
-  kDca,
-  kNumEgKinds
-};
-
 // One PD (phase distortion) sound source line: oscillator + DCO/DCW/DCA envelopes.
 // As on the CZ series, a second waveform can be selected in addition to the
 // first; the oscillator then alternates between the two on successive cycles,
