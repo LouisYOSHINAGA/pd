@@ -106,12 +106,6 @@ double Voice::generate(double pitchBend) {
   return out;
 }
 
-void Voice::setSampleRate(double sampleRate) {
-  for (PD& pd : pds_) {
-    pd.setSampleRate(sampleRate);
-  }
-}
-
 void Voice::setLineSelect(LineSelect lineSelect) {
   lineSelect_ = lineSelect;
 }

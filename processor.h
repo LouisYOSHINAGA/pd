@@ -56,6 +56,15 @@ class PDProcessor : public AudioEffect {
   std::array<ParamSyncEntry, kNumParams> pendingSync_{};
   int32 numPendingSync_ = 0;
 
+  // Linear-interpolation resampler state: advances the internal engine at a
+  // fixed kInternalSampleRate regardless of the host's output sample rate.
+  // internalTickStep_ is kInternalSampleRate / (host sample rate); phase_
+  // starts at 1.0 so the very first output sample triggers a tick.
+  double internalTickStep_ = 1.0;
+  double resamplePhase_ = 1.0;
+  double prevTickSample_ = 0.0;
+  double currTickSample_ = 0.0;
+
   // Accumulates one output sample for the editor's oscilloscope and sends
   // the frame to the controller whenever it is full.
   void pushScopeSample(float sample);
@@ -78,6 +87,11 @@ class PDProcessor : public AudioEffect {
   void onNoteOn(int channel, int note, float velocity);
   void onNoteOff(int channel, int note, float velocity);
   double generate();
+
+  // Returns the next output-rate sample by linearly interpolating between
+  // internal-rate (kInternalSampleRate) ticks, advancing the internal engine
+  // by one tick via generate() whenever the accumulated phase demands it.
+  double resample();
 
   // Recomputes the detune ratio from octave/note/fine and broadcasts it.
   void updateDetune();

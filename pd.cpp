@@ -170,7 +170,6 @@ std::unique_ptr<AbstractGenerator> makeGenerator(int8 waveformIndex) {
 
 PD::PD()
     : phasetime_(0.0),
-      sampleRate_(kDefaultSampleRate),
       onSecondWaveform_(false),
       generatorFirst_(std::make_unique<SawToothGenerator>()),
       generatorSecond_(nullptr) {
@@ -189,17 +188,13 @@ void PD::setWaveformSecond(int8 selection) {
   }
 }
 
-void PD::setSampleRate(double sampleRate) {
-  sampleRate_ = sampleRate;
-}
-
 void PD::resetPhase() {
   phasetime_ = 0.0;
   onSecondWaveform_ = false;
 }
 
 double PD::generate(double freq, bool& isDcaEnd) {
-  phasetime_ += 2 * M_PI * freq * std::exp2(eg(EgKind::kDco).generate() / 12.0) / sampleRate_;
+  phasetime_ += 2 * M_PI * freq * std::exp2(eg(EgKind::kDco).generate() / 12.0) / kInternalSampleRate;
   while (phasetime_ >= 2 * M_PI) {
     phasetime_ -= 2 * M_PI;
     // When a second waveform is selected, alternate waveforms every cycle

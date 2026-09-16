@@ -5,7 +5,10 @@
 namespace Steinberg {
 namespace Vst {
 
-constexpr double kDefaultSampleRate = 44100.0;
+// Internal DSP tick rate, fixed to match the real CZ hardware's internal
+// clock. Independent of the host's output sample rate; PDProcessor resamples
+// the internally-generated ticks up to whatever rate the host requests.
+constexpr double kInternalSampleRate = 44100.0;
 constexpr double kA4Note = 69.0;
 constexpr double kA4Freq = 440.0;
 constexpr double kEpsilon = 0.00001;

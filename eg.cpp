@@ -145,10 +145,25 @@ int32 EG::levelToIndex() const {
 
 double EG::generate() {
   double level;
-  if (egKind_ == EgKind::kDca) {
-    level = kVolume[levelToIndex()];
-  }else{
-    level = levelToIndex() / kEgBitData[static_cast<int>(egKind_)].outReso_;
+  switch(egKind_){
+    case EgKind::kDco:
+      level = levelToIndex() / kEgBitData[static_cast<int>(egKind_)].outReso_;  // 0..2048
+      level = 99 * level / 2048;
+      if(level < 64){
+        level = level / 8;
+      }else{
+        level = 2 * (level - 60);
+      }
+      break;
+    case EgKind::kDcw:
+      level = levelToIndex() / kEgBitData[static_cast<int>(egKind_)].outReso_;
+      break;
+    case EgKind::kDca:
+      level = kVolume[levelToIndex()];
+      break;
+    default:  // never reached
+      level = 0;  // dummy
+      break;
   }
   update();
   return level;
@@ -156,13 +171,30 @@ double EG::generate() {
 
 double EG::generate(bool& isEgEnd) {
   double level;
-  if (egKind_ == EgKind::kDca) {
-    level = kVolume[levelToIndex()];
-  }else{
-    level = levelToIndex() / kEgBitData[static_cast<int>(egKind_)].outReso_;
+  switch(egKind_){
+    case EgKind::kDco:
+      level = levelToIndex() / kEgBitData[static_cast<int>(egKind_)].outReso_;  // 0..2048
+      level = 99 * level / 2048;
+      if(level < 64){
+        level = level / 8;
+      }else{
+        level = 2 * (level - 60);
+      }
+      break;
+    case EgKind::kDcw:
+      level = levelToIndex() / kEgBitData[static_cast<int>(egKind_)].outReso_;
+      break;
+    case EgKind::kDca:
+      level = kVolume[levelToIndex()];
+      break;
+    default:  // never reached
+      level = 0;  // dummy
+      break;
   }
+
   update();
   isEgEnd = step_ == kEgStepHalt;
+
   return level;
 }
 

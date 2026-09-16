@@ -60,9 +60,10 @@ tresult PLUGIN_API PDProcessor::initialize(FUnknown* context) {
 tresult PLUGIN_API PDProcessor::setupProcessing(ProcessSetup& setup) {
   tresult result = AudioEffect::setupProcessing(setup);
   if (result == kResultOk) {
-    for (Voice& voice : voices_) {
-      voice.setSampleRate(processSetup.sampleRate);
-    }
+    internalTickStep_ = kInternalSampleRate / processSetup.sampleRate;
+    resamplePhase_ = 1.0;
+    prevTickSample_ = 0.0;
+    currTickSample_ = 0.0;
   }
   return result;
 }
@@ -352,11 +353,22 @@ void PDProcessor::processReplacing(ProcessData& data) {
   }
 
   for (int32 i = 0; i < data.numSamples; i++) {
-    Sample32 value = static_cast<Sample32>(generate());
+    Sample32 value = static_cast<Sample32>(resample());
     outL[i] = value;
     outR[i] = value;
     pushScopeSample(value);
   }
+}
+
+double PDProcessor::resample() {
+  while (resamplePhase_ >= 1.0) {
+    prevTickSample_ = currTickSample_;
+    currTickSample_ = generate();
+    resamplePhase_ -= 1.0;
+  }
+  double value = prevTickSample_ + (currTickSample_ - prevTickSample_) * resamplePhase_;
+  resamplePhase_ += internalTickStep_;
+  return value;
 }
 
 double PDProcessor::generate() {

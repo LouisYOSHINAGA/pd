@@ -98,10 +98,7 @@ class ResonanceTrapezoidGenerator : public AbstractResonanceGenerator {
 // which doubles the waveform period (adding a sub-harmonic one octave down).
 class PD {
  private:
-  static constexpr double kDcoEgPitchDepth = 3.0;  // TODO: temp impl, not yet a user parameter
-
   double phasetime_;
-  double sampleRate_;
   bool onSecondWaveform_;
   std::array<EG, static_cast<int>(EgKind::kNumEgKinds)> egs_;
   std::unique_ptr<AbstractGenerator> generatorFirst_;
@@ -113,7 +110,6 @@ class PD {
   PD();
   virtual void setWaveformFirst(int8 waveformIndex);
   virtual void setWaveformSecond(int8 selection);  // 0 = Off, 1..8 = waveform index + 1
-  virtual void setSampleRate(double sampleRate);
   virtual void resetPhase();
   virtual double generate(double freq, bool& isDcaEnd);
   virtual void setupEg();

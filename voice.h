@@ -43,7 +43,6 @@ class Voice {
   double generate(double pitchBend);
 
   // Broadcast setters: these settings are shared across all voices.
-  void setSampleRate(double sampleRate);
   void setLineSelect(LineSelect lineSelect);
   void setDetuneRatio(double ratio);
   // Applies one parameter of a line block; `line` is 0 (line 1) or 1 (line 2),
