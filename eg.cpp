@@ -53,18 +53,33 @@ void EG::setEndPoint(int8 point) {
 }
 
 int32 EG::rateToDLevel(double rate) {
-    uint8 rate7bit = (uint8)(127 * rate + 0.5) & 0x7F;
-    return (8 + (rate7bit & 0x07)) << (rate7bit >> 3);
+  uint8 rate7bit = (uint8)(127 * rate + 0.5) & 0x7F;
+  return (8 + (rate7bit & 0x07)) << (rate7bit >> 3);
 }
 
 int EG::levelsToSign(double current, double target){
-    return (current < target)? 1 : -1;
+  return (current < target)? 1 : -1;
+}
+
+int32 EG::levelToTarget(double level) const {
+  int32 target = (int32)(127 * level + 0.5) & 0x7F;
+
+  if(egKind_ == EgKind::kDco){
+    if(0x40 <= target && target <= 0x43){
+      target = 0x3F;
+    }
+    if(target & 0x40){
+      target = (target & 0x3F) << 5;
+    }
+  }
+
+  return target << kEgBitData[static_cast<int>(egKind_)].shiftUpBit_;
 }
 
 void EG::setup(EgKind egKind) {
   egKind_ = egKind;
   level_ = 0;
-  target_ = (int32)(127 * levels_[0] + 0.5) << kEgBitData[static_cast<int>(egKind_)].shiftUpBit_;
+  target_ = levelToTarget(levels_[0]);
   dLevel_ = levelsToSign(level_, target_) * rateToDLevel(rates_[0]);
   step_ = 0;
 }
@@ -76,10 +91,9 @@ void EG::restart() {
     step_ = sustainPoint_ + 1;
   }
 
+  target_ = levelToTarget(levels_[step_]);
   if (step_ == endPoint_) {
     target_ = 0;
-  } else {
-    target_ = (int32)(127 * levels_[step_] + 0.5) << kEgBitData[static_cast<int>(egKind_)].shiftUpBit_;
   }
   dLevel_ = levelsToSign(level_, target_) * rateToDLevel(rates_[step_]);
 }
@@ -113,21 +127,20 @@ void EG::proceed(int8 step) {
     return;
   }
 
+  target_ = levelToTarget(levels_[step_ + 1]);
   if (step == endPoint_ - 1) {
     target_ = 0;  // target level at end point must be 0
-  } else {
-    target_ = (int32)(127 * levels_[step_ + 1] + 0.5) << kEgBitData[static_cast<int>(egKind_)].shiftUpBit_;
   }
   dLevel_ = levelsToSign(level_, target_) * rateToDLevel(rates_[step + 1]);
   step_ = step + 1;
 }
 
 int32 EG::levelToIndex() const {
-    int32 index = level_ >> kEgBitData[static_cast<int>(egKind_)].shiftDownBit_;
-    if(index < 0){
-        index = 0;
-    }
-    return index;
+  int32 index = level_ >> kEgBitData[static_cast<int>(egKind_)].shiftDownBit_;
+  if(index < 0){
+    index = 0;
+  }
+  return index;
 }
 
 double EG::generate() {

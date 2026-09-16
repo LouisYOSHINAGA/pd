@@ -54,6 +54,7 @@ class EG {
   virtual void proceed(int8 step);
   virtual void update();
   virtual int32 levelToIndex() const;
+  virtual int32 levelToTarget(double level) const;
 
  public:
   EG();

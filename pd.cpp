@@ -1,7 +1,8 @@
+#define _USE_MATH_DEFINES
+
 #include "pd.h"
 
-#define _USE_MATH_DEFINES
-#include <math.h>
+#include <cmath>
 
 #include "const.h"
 
@@ -198,8 +199,8 @@ void PD::resetPhase() {
 }
 
 double PD::generate(double freq, bool& isDcaEnd) {
-  phasetime_ += 2 * M_PI * freq * (1 + kDcoEgPitchDepth * eg(EgKind::kDco).generate()) / sampleRate_;  // TODO: temp impl
-  if (phasetime_ >= 2 * M_PI) {
+  phasetime_ += 2 * M_PI * freq * std::exp2(eg(EgKind::kDco).generate() / 12.0) / sampleRate_;
+  while (phasetime_ >= 2 * M_PI) {
     phasetime_ -= 2 * M_PI;
     // When a second waveform is selected, alternate waveforms every cycle
     // (CZ behavior); the combined waveform then repeats every two cycles.
