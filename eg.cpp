@@ -9,8 +9,9 @@ double kVolume[512];
 struct VolumeInit {
   VolumeInit() {
     kVolume[0] = 0.0;
-    for (int i = 1; i < 512; ++i)
+    for (int i = 1; i < 512; i++){
       kVolume[i] = std::floor(std::pow(2.0, 13.0 * i / 511.0)) / 8192.0;
+    }
   }
 } gVolumeInit;
 
@@ -20,7 +21,8 @@ namespace Steinberg {
 namespace Vst {
 
 EG::EG()
-    : rates_{},
+    : egKind_(EgKind::kDco),  // dummy value for initialize
+      rates_{},
       levels_{},
       sustainPoint_(kEgSustainOff),  // default: Off
       endPoint_(kEgEndPointOffset),  // default: 2
@@ -62,7 +64,7 @@ int EG::levelsToSign(double current, double target){
 void EG::setup(EgKind egKind) {
   egKind_ = egKind;
   level_ = 0;
-  target_ = (int32)(127 * levels_[0] + 0.5) << 18;
+  target_ = (int32)(127 * levels_[0] + 0.5) << kEgBitData[static_cast<int>(egKind_)].shiftUpBit_;
   dLevel_ = levelsToSign(level_, target_) * rateToDLevel(rates_[0]);
   step_ = 0;
 }
@@ -77,7 +79,7 @@ void EG::restart() {
   if (step_ == endPoint_) {
     target_ = 0;
   } else {
-    target_ = (int32)(127 * levels_[step_] + 0.5) << 18;
+    target_ = (int32)(127 * levels_[step_] + 0.5) << kEgBitData[static_cast<int>(egKind_)].shiftUpBit_;
   }
   dLevel_ = levelsToSign(level_, target_) * rateToDLevel(rates_[step_]);
 }
@@ -114,14 +116,14 @@ void EG::proceed(int8 step) {
   if (step == endPoint_ - 1) {
     target_ = 0;  // target level at end point must be 0
   } else {
-    target_ = (int32)(127 * levels_[step_ + 1] + 0.5) << 18;
+    target_ = (int32)(127 * levels_[step_ + 1] + 0.5) << kEgBitData[static_cast<int>(egKind_)].shiftUpBit_;
   }
   dLevel_ = levelsToSign(level_, target_) * rateToDLevel(rates_[step + 1]);
   step_ = step + 1;
 }
 
 int32 EG::levelToIndex() const {
-    int32 index = level_ >> 16;
+    int32 index = level_ >> kEgBitData[static_cast<int>(egKind_)].shiftDownBit_;
     if(index < 0){
         index = 0;
     }
@@ -133,7 +135,7 @@ double EG::generate() {
   if (egKind_ == EgKind::kDca) {
     level = kVolume[levelToIndex()];
   }else{
-    level = levelToIndex() / 512.0;
+    level = levelToIndex() / kEgBitData[static_cast<int>(egKind_)].outReso_;
   }
   update();
   return level;
@@ -144,7 +146,7 @@ double EG::generate(bool& isEgEnd) {
   if (egKind_ == EgKind::kDca) {
     level = kVolume[levelToIndex()];
   }else{
-    level = levelToIndex() / 512.0;
+    level = levelToIndex() / kEgBitData[static_cast<int>(egKind_)].outReso_;
   }
   update();
   isEgEnd = step_ == kEgStepHalt;

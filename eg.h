@@ -16,6 +16,12 @@ enum class EgKind {
   kNumEgKinds
 };
 
+struct EgBitData {
+  int8 shiftUpBit_;
+  int8 shiftDownBit_;
+  double outReso_;
+};
+
 // Eight-step rate/level envelope generator, modeled after the CZ series DCO/DCW/DCA EG.
 class EG {
  protected:
@@ -25,6 +31,13 @@ class EG {
   static constexpr int8 kEgSustainOff = kNumEgSteps;
   static constexpr int8 kEgSustainPointOffset = -1;
   static constexpr int8 kEgEndPointOffset = 1;
+
+  static constexpr EgBitData kEgBitData[3] = {
+    // {shift up, shift down, out reso}
+    {16, 11,  512.0},  // DCO
+    {19, 16, 1024.0},  // DCW
+    {18, 16, 1024.0}   // DCA
+  };
 
   EgKind egKind_;
   std::array<double, kNumEgSteps> rates_;
