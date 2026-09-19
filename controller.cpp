@@ -31,6 +31,14 @@ const char* const kWaveformNames[] = {
   "8: Resonance III Trapezoid",
 };
 
+// The four vibrato LFO shapes, in the order the hardware panel prints them.
+const char* const kVibratoWaveNames[] = {
+  "1: Triangle",
+  "2: Saw Up",
+  "3: Saw Down",
+  "4: Square",
+};
+
 void toString128(String128 dst, const char* src) {
   UString(dst, 128).fromAscii(src);
 }
@@ -174,6 +182,33 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
     2 * kDetuneFineRange, -kDetuneFineRange, kDetuneFineRange, 0
   ));
 
+  // octave range: transposes the whole keyboard, as the CZ OCTAVE button does
+  parameters.addParameter(new DiscreteRangeParameter(
+    STR16("Octave"), kParamOctaveShift, nullptr,
+    2 * kOctaveShiftRange, -kOctaveShiftRange, kOctaveShiftRange, 0
+  ));
+
+  // modulation (CZ MODULATION section, next to LINE SELECT)
+  StringListParameter* modulation = new StringListParameter(STR16("Modulation"),
+                                                            kParamModulation);
+  modulation->appendString(STR16("Off"));
+  modulation->appendString(STR16("Ring"));
+  parameters.addParameter(modulation);
+
+  // vibrato: one global LFO on the pitch of every line
+  StringListParameter* vibratoWave = new StringListParameter(STR16("Vibrato Wave"),
+                                                             kParamVibratoWave);
+  for (const char* name : kVibratoWaveNames) {
+    appendAsciiString(vibratoWave, name);
+  }
+  parameters.addParameter(vibratoWave);
+  parameters.addParameter(new DiscreteRangeParameter(STR16("Vibrato Delay"),
+                                                     kParamVibratoDelay));
+  parameters.addParameter(new DiscreteRangeParameter(STR16("Vibrato Rate"),
+                                                     kParamVibratoRate));
+  parameters.addParameter(new DiscreteRangeParameter(STR16("Vibrato Depth"),
+                                                     kParamVibratoDepth));
+
   // per-line waveform and EG parameters
   addLineParameters(parameters, "L1", kParamLine1Begin);
   addLineParameters(parameters, "L2", kParamLine2Begin);
@@ -300,14 +335,8 @@ tresult PLUGIN_API PDController::setComponentState(IBStream* state) {
   if (!streamer.readInt32(version)) {
     return kResultFalse;
   }
-  int32 numParams;
-  if (version == kStateVersion) {
-    numParams = kNumParams;
-  } else if (version == 2) {
-    numParams = kParamMonoTrigger;
-  } else if (version == 1) {  // v1 predates kParamCcEditLine
-    numParams = kParamCcEditLine;
-  } else {
+  int32 numParams = paramCountForStateVersion(version);
+  if (numParams < 0) {
     return kResultFalse;
   }
   for (int32 paramId = 0; paramId < numParams; paramId++) {
@@ -316,6 +345,13 @@ tresult PLUGIN_API PDController::setComponentState(IBStream* state) {
       return kResultFalse;
     }
     setParamNormalized(paramId, value);
+  }
+  // Parameters an older stream predates fall back to their default, matching
+  // what the processor does, so a preset never leaves part of the old sound.
+  for (int32 paramId = numParams; paramId < kNumParams; paramId++) {
+    if (Parameter* parameter = parameters.getParameter(paramId)) {
+      setParamNormalized(paramId, parameter->getInfo().defaultNormalizedValue);
+    }
   }
   return kResultTrue;
 }
@@ -414,10 +450,19 @@ constexpr CtrlNumber kLineSelect = 9;
 constexpr CtrlNumber kDetuneOctave = 85;
 constexpr CtrlNumber kDetuneNote = 86;
 constexpr CtrlNumber kDetuneFine = 87;
+// octave range (values 0..127 -> {-1, 0, +1})
+constexpr CtrlNumber kOctaveShift = 88;
 // first waveform selection (values 0..127 -> waveform {1..8})
 constexpr CtrlNumber kCcEditWaveformFirst = 89;
 // second waveform selection (values 0..127 -> waveform {Off, 1..8})
 constexpr CtrlNumber kCcEditWaveformSecond = 90;
+// vibrato, one contiguous block laid out like the panel (wave, delay, rate, depth)
+constexpr CtrlNumber kVibratoWave = 80;
+constexpr CtrlNumber kVibratoDelay = 81;
+constexpr CtrlNumber kVibratoRate = 82;
+constexpr CtrlNumber kVibratoDepth = 83;
+// modulation (values 0..63 = off, 64..127 = ring)
+constexpr CtrlNumber kModulation = 119;
 // mono mode on
 constexpr CtrlNumber kMonoModeOn = 126;
 // poly mode on
@@ -484,6 +529,24 @@ tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int
       return kResultTrue;
     case kDetuneFine:
       id = kParamDetuneFine;
+      return kResultTrue;
+    case kOctaveShift:
+      id = kParamOctaveShift;
+      return kResultTrue;
+    case kModulation:
+      id = kParamModulation;
+      return kResultTrue;
+    case kVibratoWave:
+      id = kParamVibratoWave;
+      return kResultTrue;
+    case kVibratoDelay:
+      id = kParamVibratoDelay;
+      return kResultTrue;
+    case kVibratoRate:
+      id = kParamVibratoRate;
+      return kResultTrue;
+    case kVibratoDepth:
+      id = kParamVibratoDepth;
       return kResultTrue;
     default:
       break;

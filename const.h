@@ -13,9 +13,13 @@ constexpr double kA4Note = 69.0;
 constexpr double kA4Freq = 440.0;
 constexpr double kEpsilon = 0.00001;
 
-// Version tag written at the head of the processor state stream.
-// v2 appended kParamCcEditLine; v1 streams are still readable.
-constexpr int kStateVersion = 3;
+// Version tag written at the head of the processor state stream. Every
+// version so far only appended parameters, so an older stream is a prefix of
+// the current one and stays readable (see paramCountForStateVersion).
+//   v2: appended kParamCcEditLine
+//   v3: appended the Mono/Poly CC triggers
+//   v4: appended octave shift, modulation and the vibrato block
+constexpr int kStateVersion = 4;
 
 // Oscilloscope: the processor streams frames of recent output samples to the
 // controller as messages; the editor's scope view renders the latest frame.
@@ -91,8 +95,37 @@ constexpr int kDetuneNoteRange = 11;
 constexpr int kDetuneFineRange = 60;
 constexpr double kDetuneFineStepCents = 100.0 / kDetuneFineRange;
 
+// CZ OCTAVE (the panel's "octave range"): transposes the whole keyboard by
+// one octave. The hardware stores it in the OCTV bits of the sysex PFLAG byte,
+// which only encode 0 / +1 / -1, so the range is one octave either way.
+constexpr int kOctaveShiftRange = 1;
+
+// CZ MODULATION: a global switch sitting next to LINE SELECT on the panel.
+// The hardware packs it into the same sysex byte as the DCO1 waveform (MFW),
+// where "no modulation", "ring modulation" and "noise modulation" are mutually
+// exclusive; it only has an effect in the dual-line modes (1+1', 1+2'), since
+// it needs two lines to work on. Noise modulation is not implemented yet.
+enum class Modulation {
+  kOff,
+  kRing,  // the two lines are multiplied instead of summed
+  kNumModulations
+};
+
 // Number of states of the second-waveform selector: "Off" + the 8 waveforms.
 constexpr int kNumSecondWaveformOptions = 9;
+
+// CZ VIBRATO: one global LFO modulating the pitch of every line, with the
+// four panel parameters WAVE / DELAY / RATE / DEPTH.
+enum class VibratoWave {
+  kTriangle,
+  kSawUp,
+  kSawDown,
+  kSquare,
+  kNumVibratoWaves
+};
+
+// DELAY, RATE and DEPTH are 0..99 dials, like the EG rates and levels.
+constexpr int kVibratoDialMax = 99;
 
 // Layout of one line's parameter block, relative to the line's base id.
 // The three EG sub-blocks are ordered DCO, DCW, DCA (must match EgKind).
@@ -128,8 +161,30 @@ enum ParamId {
   kParamMonoTrigger,  // dummy to receive CC 126 (Mono Mode On)
   kParamPolyTrigger,  // dummy to receive CC 127 (Poly Mode On)
 
+  // Appended in state v4. New parameters always go at the end so that an
+  // older state stream stays a valid prefix of the current one.
+  kParamOctaveShift,
+  kParamModulation,
+  kParamVibratoWave,
+  kParamVibratoDelay,
+  kParamVibratoRate,
+  kParamVibratoDepth,
+
   kNumParams
 };
+
+// How many parameters a state stream of a given version carries. Older
+// versions stop short of kNumParams; whatever they leave out is restored to
+// its default value. Returns -1 for a version this build cannot read.
+inline int32_t paramCountForStateVersion(int32_t version) {
+  switch (version) {
+    case 1:  return kParamCcEditLine;    // predates the CC edit line selector
+    case 2:  return kParamMonoTrigger;   // predates the Mono/Poly CC triggers
+    case 3:  return kParamOctaveShift;   // predates octave/modulation/vibrato
+    case 4:  return kNumParams;
+    default: return -1;
+  }
+}
 
 enum class Waveform {
   kSawTooth,

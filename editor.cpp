@@ -25,7 +25,14 @@ using namespace VSTGUI;
 namespace {
 
 constexpr int kEditorWidth = 1048;
-constexpr int kEditorHeight = 752;
+constexpr int kEditorHeight = 844;
+
+// Vertical origin of the two global rows and of the line panels below them.
+// A row is 14px of section label, then its controls.
+constexpr double kGlobalRow1Top = 76;
+constexpr double kGlobalRow2Top = 168;
+constexpr double kLinePanelTop = 258;
+constexpr double kLinePanelBottom = 839;
 
 // tags outside the parameter id space
 constexpr int32_t kSkinMenuTag = 100000;
@@ -94,6 +101,10 @@ const char* const kEgTitles[] = {"DCO ENV", "DCW ENV", "DCA ENV"};
 const std::vector<std::string> kWaveformEntries = {
   "1 Saw Tooth", "2 Square", "3 Pulse", "4 Double Sine", "5 Saw Pulse",
   "6 Resonance I", "7 Resonance II", "8 Resonance III",
+};
+
+const std::vector<std::string> kVibratoWaveEntries = {
+  "1 Triangle", "2 Saw Up", "3 Saw Down", "4 Square",
 };
 
 SharedPointer<CFontDesc> makeFont(double size, bool bold) {
@@ -479,39 +490,51 @@ void PDEditor::buildHeader(CFrame* frame) {
   frame->addView(scope);
 }
 
+double PDEditor::addDialColumn(CViewContainer* parent, double x, double top, ParamID tag,
+                               const char* label, const char* tooltip, const CColor& accent,
+                               int32 signedRange) {
+  static constexpr double kDialColumnStep = 62;
+  addKnob(parent, CRect(x, top + 16, x + 38, top + 54), tag, accent, signedRange > 0, tooltip);
+  addLabel(parent, CRect(x - 10, top + 55, x + 48, top + 68), label, skin().textDim, 10, false,
+           kCenterText);
+  attachValueLabel(parent, CRect(x - 10, top + 68, x + 48, top + 84), tag, signedRange);
+  return x + kDialColumnStep;
+}
+
 void PDEditor::buildGlobalRow(CFrame* frame) {
-  addLabel(frame, CRect(24, 76, 170, 90), "LINE SELECT", skin().textDim, 11, true);
-  addSegmentButton(frame, CRect(24, 94, 280, 126), kParamLineSelect,
-                   {"1", "2", "1+1'", "1+2'"});
+  // Upper row: how a voice is put together, and how the keyboard plays it.
+  addLabel(frame, CRect(24, kGlobalRow1Top, 170, kGlobalRow1Top + 14), "LINE SELECT",
+           skin().textDim, 11, true);
+  addSegmentButton(frame, CRect(24, kGlobalRow1Top + 18, 280, kGlobalRow1Top + 50),
+                   kParamLineSelect, {"1", "2", "1+1'", "1+2'"});
   bindings_[kParamLineSelect].control->setTooltipText(
     "Sounding line configuration (1' / 2' are detuned)"
   );
 
-  addLabel(frame, CRect(310, 76, 420, 90), "KEY ASSIGN", skin().textDim, 11, true);
-  addSegmentButton(frame, CRect(310, 94, 440, 126), kParamMonoPoly, {"POLY", "MONO"});
+  modulationLabel_ = addLabel(frame, CRect(300, kGlobalRow1Top, 420, kGlobalRow1Top + 14),
+                              "MODULATION", skin().textDim, 11, true);
+  addSegmentButton(frame, CRect(300, kGlobalRow1Top + 18, 428, kGlobalRow1Top + 50),
+                   kParamModulation, {"OFF", "RING"});
+  bindings_[kParamModulation].control->setTooltipText(
+    "Ring modulation: the two lines are multiplied instead of mixed (dual-line modes only)"
+  );
 
-  addLabel(frame, CRect(478, 76, 556, 90), "DETUNE", skin().textDim, 11, true);
-  const struct {
-    ParamID tag;
-    int32 range;
-    const char* label;
-    const char* tooltip;
-  } detunes[] = {
-    {kParamDetuneOctave, kDetuneOctaveRange, "OCT", "Detune Octave"},
-    {kParamDetuneNote, kDetuneNoteRange, "NOTE", "Detune Note"},
-    {kParamDetuneFine, kDetuneFineRange, "FINE", "Detune Fine"},
-  };
-  double x = 478;
-  for (const auto& detune : detunes) {
-    addKnob(frame, CRect(x, 92, x + 38, 130), detune.tag, skin().eg[1], true, detune.tooltip);
-    addLabel(frame, CRect(x - 10, 131, x + 48, 144), detune.label, skin().textDim, 10, false,
-             kCenterText);
-    attachValueLabel(frame, CRect(x - 10, 144, x + 48, 160), detune.tag, detune.range);
-    x += 62;
-  }
+  addLabel(frame, CRect(448, kGlobalRow1Top, 558, kGlobalRow1Top + 14), "KEY ASSIGN",
+           skin().textDim, 11, true);
+  addSegmentButton(frame, CRect(448, kGlobalRow1Top + 18, 576, kGlobalRow1Top + 50),
+                   kParamMonoPoly, {"POLY", "MONO"});
 
-  addLabel(frame, CRect(700, 76, 760, 90), "SKIN", skin().textDim, 11, true);
-  COptionMenu* skinMenu = new COptionMenu(CRect(700, 94, 800, 118), this, kSkinMenuTag);
+  addLabel(frame, CRect(596, kGlobalRow1Top, 700, kGlobalRow1Top + 14), "OCTAVE",
+           skin().textDim, 11, true);
+  addSegmentButton(frame, CRect(596, kGlobalRow1Top + 18, 728, kGlobalRow1Top + 50),
+                   kParamOctaveShift, {"-1", "0", "+1"});
+  bindings_[kParamOctaveShift].control->setTooltipText("Octave range of the whole keyboard");
+
+  addLabel(frame, CRect(924, kGlobalRow1Top, 984, kGlobalRow1Top + 14), "SKIN",
+           skin().textDim, 11, true);
+  COptionMenu* skinMenu = new COptionMenu(
+    CRect(924, kGlobalRow1Top + 18, 1024, kGlobalRow1Top + 42), this, kSkinMenuTag
+  );
   for (int32 i = 0; i < kNumSkins; i++) {
     skinMenu->addEntry(kSkins[i].name);
   }
@@ -524,10 +547,53 @@ void PDEditor::buildGlobalRow(CFrame* frame) {
   skinMenu->setRoundRectRadius(3.0);
   skinMenu->setValue(static_cast<float>(pdController()->getSkinIndex()));
   frame->addView(skinMenu);
+
+  // Lower row: everything that bends the pitch.
+  addLabel(frame, CRect(24, kGlobalRow2Top, 110, kGlobalRow2Top + 14), "DETUNE",
+           skin().textDim, 11, true);
+  const struct {
+    ParamID tag;
+    int32 range;
+    const char* label;
+    const char* tooltip;
+  } detunes[] = {
+    {kParamDetuneOctave, kDetuneOctaveRange, "OCT", "Detune Octave"},
+    {kParamDetuneNote, kDetuneNoteRange, "NOTE", "Detune Note"},
+    {kParamDetuneFine, kDetuneFineRange, "FINE", "Detune Fine"},
+  };
+  double x = 34;
+  for (const auto& detune : detunes) {
+    x = addDialColumn(frame, x, kGlobalRow2Top, detune.tag, detune.label, detune.tooltip,
+                      skin().eg[1], detune.range);
+  }
+
+  addLabel(frame, CRect(250, kGlobalRow2Top, 340, kGlobalRow2Top + 14), "VIBRATO",
+           skin().textDim, 11, true);
+  addLabel(frame, CRect(250, kGlobalRow2Top + 22, 292, kGlobalRow2Top + 36), "WAVE",
+           skin().textDim, 10);
+  addMenu(frame, CRect(292, kGlobalRow2Top + 18, 406, kGlobalRow2Top + 40), kParamVibratoWave,
+          kVibratoWaveEntries);
+
+  const struct {
+    ParamID tag;
+    const char* label;
+    const char* tooltip;
+  } vibratos[] = {
+    {kParamVibratoDelay, "DELAY", "Time before the vibrato starts"},
+    {kParamVibratoRate, "RATE", "Vibrato speed"},
+    {kParamVibratoDepth, "DEPTH", "Vibrato depth"},
+  };
+  x = 440;
+  for (const auto& vibrato : vibratos) {
+    x = addDialColumn(frame, x, kGlobalRow2Top, vibrato.tag, vibrato.label, vibrato.tooltip,
+                      skin().eg[0]);
+  }
 }
 
 void PDEditor::buildLinePanel(CFrame* frame, double x, int32 lineBase, const char* title) {
-  CViewContainer* panel = new CViewContainer(CRect(x, 166, x + 512, 747));
+  CViewContainer* panel = new CViewContainer(
+    CRect(x, kLinePanelTop, x + 512, kLinePanelBottom)
+  );
   panel->setBackgroundColor(skin().panel);
   frame->addView(panel);
 
@@ -637,6 +703,30 @@ void PDEditor::restyleLineTitles() {
   }
 }
 
+void PDEditor::restyleModulation() {
+  auto it = bindings_.find(kParamModulation);
+  if (it == bindings_.end() || it->second.control == nullptr) {
+    return;
+  }
+  // MODULATION needs two lines to work on, so it does nothing in the
+  // single-line modes; grey it out there rather than let it look armed.
+  LineSelect mode = static_cast<LineSelect>(decodeOptionIndex(
+    getController()->getParamNormalized(kParamLineSelect),
+    static_cast<int>(LineSelect::kNumLineSelects)
+  ));
+  bool dualLine = mode == LineSelect::kLine1Plus1Detuned
+               || mode == LineSelect::kLine1Plus2Detuned;
+
+  CControl* control = it->second.control;
+  control->setAlphaValue(dualLine ? 1.0f : 0.25f);
+  control->setMouseEnabled(dualLine);
+  control->invalidRect(control->getViewSize());
+  if (modulationLabel_ != nullptr) {
+    modulationLabel_->setAlphaValue(dualLine ? 1.0f : 0.25f);
+    modulationLabel_->invalid();
+  }
+}
+
 void PDEditor::syncAllControls() {
   for (const auto& [tag, binding] : bindings_) {
     updateControl(tag, getController()->getParamNormalized(tag));
@@ -645,6 +735,7 @@ void PDEditor::syncAllControls() {
     restyleStrip(strip);
   }
   restyleLineTitles();
+  restyleModulation();
 }
 
 void PDEditor::rebuildUi() {
@@ -656,6 +747,7 @@ void PDEditor::rebuildUi() {
   strips_.clear();
   stripByStyleTag_.clear();
   lineTitles_ = {};
+  modulationLabel_ = nullptr;
   buildUi();
   syncAllControls();
   frame->invalid();
@@ -686,6 +778,7 @@ void PLUGIN_API PDEditor::close() {
   strips_.clear();
   stripByStyleTag_.clear();
   lineTitles_ = {};
+  modulationLabel_ = nullptr;
   if (frame != nullptr) {
     frame->close();  // closes the platform window and forgets the frame
     frame = nullptr;
@@ -843,6 +936,7 @@ void PDEditor::updateControl(ParamID tag, ParamValue value) {
   }
   if (tag == kParamLineSelect) {
     restyleLineTitles();
+    restyleModulation();
   }
 }
 

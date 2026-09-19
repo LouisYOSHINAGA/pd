@@ -24,6 +24,14 @@ PD音源では、単一のcos波の位相の読み出しを歪ませることで
   波形選択とDCO/DCW/DCA Envelopeを持つ。
   `'` (Prime) の付いたLINEにはdetuneが適用される。
 - **DETUNE** — Octave (±3) / Note (±11半音) / Fine（±60、1step = 1/60半音）
+- **OCTAVE** — 実機の octave range 相当。鍵盤全体を ±1オクターブ移調する。
+  実機のsysex `PFLAG` の `OCTV` ビットが `0 / +1 / -1` の3状態しか持たないため、範囲も±1とした。
+- **MODULATION (RING)** — 実機の MODULATION セクション相当。
+  dual line（`1+1'` / `1+2'`）でのみ有効で、2つのLINEを加算する代わりに乗算する。
+  元の倍音の代わりに和音・差音が現れるため、ベルや金属的な音色が得られる。
+  どちらのLINEも単独では聞こえないので、いずれかのDCA envelopeが終わった時点で発音が終わる。
+- **VIBRATO** — 全LINEの音程を揺らすグローバルLFO。
+  Wave（Triangle / Saw Up / Saw Down / Square）/ Delay / Rate / Depth の4パラメータを持つ。
 - **8 Step Envelope (EG)** — DCO（音程）/ DCW（音色）/ DCA（音量）それぞれが
   Rate×8, Level×7, Sustain Point, End Pointを持つ。
 - **16 Polyphonic** — dual line（`1+1'` / `1+2'`）では実機同様8音に半減。
@@ -46,6 +54,8 @@ PD音源では、単一のcos波の位相の読み出しを歪ませることで
            (waveform 1st/2nd 交互出力)
 ```
 `1+1'` / `1+2'` では上記のLINE2系統が加算され、Prime側の音程にdetuneが加算される。
+MODULATIONをRINGにすると、この加算が乗算（ring modulation）に置き換わる。
+OCTAVEとVIBRATOは全voice共通の音程オフセットとして、pitch bendと合算して適用される。
 
 
 ## Parameters
@@ -55,6 +65,10 @@ PD音源では、単一のcos波の位相の読み出しを歪ませることで
 | Line Select | {1, 2, 1+1', 1+2'} | LINE構成の選択 |
 | Mono/Poly | Poly / Mono | 発音モード |
 | Detune Octave / Note / Fine | ±3 / ±11 / ±60 | Prime側のLINE（`1'`, `2'`）のdetune |
+| Octave | ±1 | 鍵盤全体のoctave shift |
+| Modulation | Off / Ring | LINE間のring modulation（dual lineのみ有効）|
+| Vibrato Wave | {Triangle, Saw Up, Saw Down, Square} | vibrato LFOの波形 |
+| Vibrato Delay / Rate / Depth | {0..99} | vibratoの開始待ち時間 / 速度 / 深さ |
 | L1/L2 Waveform 1st | 8波形 | 各LINEの第1波形 |
 | L1/L2 Waveform 2nd | {8波形, Off} | 各LINEの第2波形（optional）|
 | L1/L2 {DCO, DCW, DCA} EG Rate 1–8 | {0..99} | 各stepの遷移速度 |
@@ -64,6 +78,11 @@ PD音源では、単一のcos波の位相の読み出しを歪ませることで
 
 - DCW EGのlevelが位相歪みの深さを決定する。0で純粋なcos波、99で各波形の特性が最も強く現れる。
 - End Pointに指定したstepの到達levelは常に0となる
+- Vibratoの Delay / Rate / Depth の0..99は線形ではない。実機のMIDI system exclusive仕様に
+  記載された変換表をそのまま再現しており、下半分は1ステップずつ、そこから16ステップごとに
+  刻み幅が倍になる（3つの表がいずれも同一の曲線である点は`vibrato.cpp`を参照）。
+  ただし、その内部値が実時間・実音程で何に相当するかは資料が無いため、
+  `vibrato.cpp`の較正定数で Rate ≒ 0.06..42 Hz、Delay ≒ 0..5 s、Depth ≒ 0..±2半音に割り当てている。
 
 
 ## MIDI Implementation
@@ -85,7 +104,10 @@ CCがどちらのLINEを編集するかは`CC Edit Line`パラメータで選択
 | CC Edit Line | CC 3 | 0..63: LINE1, 64..127: LINE2 |
 | Line Select | CC 9 | [param] Line Select |
 | Detune {Octave,Note,Fine} | CC {85,86,87} | [param] Detune {Octave,Note,Fine} |
+| Octave | CC 88 | [param] Octave（0..127 -> {-1, 0, +1}）|
 | Wavefome {1,2} | CC {89,90} | [param] L1/L2 Waveform {1st,2nd} |
+| Vibrato {Wave,Delay,Rate,Depth} | CC {80,81,82,83} | [param] Vibrato {Wave,Delay,Rate,Depth} |
+| Modulation | CC 119 | [param] Modulation（0..63: Off, 64..127: Ring）|
 
 | Target EG | Rate 1..8 | Lvl 1..7 | Sustain Point | End Point |
 |---|---|---|---|---|

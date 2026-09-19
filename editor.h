@@ -52,10 +52,10 @@ class OscilloscopeView : public VSTGUI::CView {
 };
 
 // Programmatically built editor: header with title/preset/volume/oscilloscope,
-// a global row (line select, key assign, detune, CC edit line, skin), and one
-// panel per line with waveform selectors and the three EG strips (level
-// sliders on top, rate dials below, with sustain/end visualization and
-// numeric value readouts).
+// two global rows (line select, modulation, key assign, octave and skin above;
+// detune and vibrato below), and one panel per line with waveform selectors
+// and the three EG strips (level sliders on top, rate dials below, with
+// sustain/end visualization and numeric value readouts).
 class PDEditor : public VSTGUIEditor, public VSTGUI::IControlListener {
  public:
   PDEditor(void* controller);
@@ -122,8 +122,17 @@ class PDEditor : public VSTGUIEditor, public VSTGUI::IControlListener {
   // Dims the panel title of a line that is not audible under the current
   // line mode.
   void restyleLineTitles();
+  // Greys out the MODULATION switch outside the dual-line modes, where it has
+  // nothing to work on.
+  void restyleModulation();
 
   void buildHeader(VSTGUI::CFrame* frame);
+  // Adds one labelled dial with a numeric readout underneath, the layout the
+  // DETUNE and VIBRATO columns of the global rows share. Returns the x of the
+  // next column.
+  double addDialColumn(VSTGUI::CViewContainer* parent, double x, double top, ParamID tag,
+                       const char* label, const char* tooltip,
+                       const VSTGUI::CColor& accent, int32 signedRange = 0);
   void buildGlobalRow(VSTGUI::CFrame* frame);
   void buildLinePanel(VSTGUI::CFrame* frame, double x, int32 lineBase, const char* title);
   void buildUi();
@@ -140,6 +149,7 @@ class PDEditor : public VSTGUIEditor, public VSTGUI::IControlListener {
   std::vector<EgStrip> strips_;
   std::map<ParamID, size_t> stripByStyleTag_;  // sustain/end tag -> strip index
   std::array<VSTGUI::CTextLabel*, 2> lineTitles_{};
+  VSTGUI::CTextLabel* modulationLabel_ = nullptr;
 };
 
 }  // namespace Vst

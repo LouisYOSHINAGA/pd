@@ -40,6 +40,8 @@ smtg_add_vst3plugin(pd
     editor.cpp
     eg.h
     eg.cpp
+    vibrato.h
+    vibrato.cpp
     voice.h
     voice.cpp
     ${vst3sdk_SOURCE_DIR}/public.sdk/source/common/memorystream.cpp

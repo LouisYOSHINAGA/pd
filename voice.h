@@ -40,10 +40,13 @@ class Voice {
 
   void noteOn(int channel, int note, uint64_t age);
   void noteOff();
-  double generate(double pitchBend);
+  // `pitchOffset` is the global pitch offset in semitones (pitch bend, octave
+  // shift and vibrato combined).
+  double generate(double pitchOffset);
 
   // Broadcast setters: these settings are shared across all voices.
   void setLineSelect(LineSelect lineSelect);
+  void setModulation(Modulation modulation);
   void setDetuneRatio(double ratio);
   // Applies one parameter of a line block; `line` is 0 (line 1) or 1 (line 2),
   // `offset` is the position within the block (see layout in const.h).
@@ -66,9 +69,15 @@ class Voice {
   // while the unit's DCA envelope is still running.
   bool runUnit(int unit, double freq, double& out);
 
+  // Runs the two stacked units of a dual-line mode and mixes them into `out`.
+  // `second` is the unit playing the primed (detuned) line. Returns true while
+  // the mode's output can still be heard.
+  bool runDualLine(int second, double freq, double detunedFreq, double& out);
+
   std::array<PD, kNumUnits> pds_;
   std::array<bool, kNumUnits> egEnded_;
   LineSelect lineSelect_;
+  Modulation modulation_;
   double detuneRatio_;
   int channel_;
   int note_;

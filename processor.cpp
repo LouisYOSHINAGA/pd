@@ -31,6 +31,7 @@ ParamValue PDProcessor::defaultParamValue(int32 paramId) {
     case kParamDetuneOctave:  // signed parameters center on 0.5
     case kParamDetuneNote:
     case kParamDetuneFine:
+    case kParamOctaveShift:
       return 0.5;
     case kParamVolume:
       return 0.5;
@@ -117,6 +118,25 @@ void PDProcessor::applyParameter(int32 paramId, ParamValue value) {
   } else if (paramId == kParamDetuneFine) {
     detuneFine_ = decodeSignedOption(value, kDetuneFineRange);
     updateDetune();
+  } else if (paramId == kParamOctaveShift) {
+    octaveShift_ = decodeSignedOption(value, kOctaveShiftRange);
+  } else if (paramId == kParamModulation) {
+    modulation_ = static_cast<Modulation>(
+      decodeOptionIndex(value, static_cast<int>(Modulation::kNumModulations))
+    );
+    for (Voice& voice : voices_) {
+      voice.setModulation(modulation_);
+    }
+  } else if (paramId == kParamVibratoWave) {
+    vibrato_.setWave(static_cast<VibratoWave>(
+      decodeOptionIndex(value, static_cast<int>(VibratoWave::kNumVibratoWaves))
+    ));
+  } else if (paramId == kParamVibratoDelay) {
+    vibrato_.setDelay(static_cast<int>(lround(value * kVibratoDialMax)));
+  } else if (paramId == kParamVibratoRate) {
+    vibrato_.setRate(static_cast<int>(lround(value * kVibratoDialMax)));
+  } else if (paramId == kParamVibratoDepth) {
+    vibrato_.setDepth(static_cast<int>(lround(value * kVibratoDialMax)));
   } else if (kParamLine1Begin <= paramId && paramId < kParamCcEditLine) {
     int32 rel = paramId - kParamLine1Begin;
     int32 line = rel / kNumLineParams;
@@ -204,12 +224,8 @@ tresult PLUGIN_API PDProcessor::setState(IBStream* state) {
   if (!streamer.readInt32(version)) {
     return kResultFalse;
   }
-  int32 numParams;
-  if (version == kStateVersion) {
-    numParams = kNumParams;
-  } else if (version == 1) {  // v1 predates kParamCcEditLine
-    numParams = kParamCcEditLine;
-  } else {
+  int32 numParams = paramCountForStateVersion(version);
+  if (numParams < 0) {
     return kResultFalse;
   }
   for (int32 paramId = 0; paramId < numParams; paramId++) {
@@ -219,7 +235,16 @@ tresult PLUGIN_API PDProcessor::setState(IBStream* state) {
     }
     applyParameter(paramId, value);
   }
+  // Parameters an older stream predates are not simply left alone: they are
+  // reset, so that loading a preset never leaves part of the previous sound.
+  for (int32 paramId = numParams; paramId < kNumParams; paramId++) {
+    applyParameter(paramId, defaultParamValue(paramId));
+  }
   return kResultTrue;
+}
+
+double PDProcessor::pitchOffset(double vibrato) const {
+  return pitchBend_ + 12.0 * octaveShift_ + vibrato;
 }
 
 void PDProcessor::updateDetune() {
@@ -289,8 +314,14 @@ Voice* PDProcessor::allocateVoice() {
 }
 
 void PDProcessor::onNoteOn(int channel, int note, float velocity) {
+  // The first key of a phrase restarts the vibrato delay; keys added to a
+  // chord or played legato do not, since there is only one vibrato generator.
+  if (heldNotes_.empty()) {
+    vibrato_.trigger();
+  }
+  heldNotes_.push_back(HeldNote{channel, note});
+
   if (mono_) {
-    heldNotes_.push_back(HeldNote{channel, note});
     voices_[0].noteOn(channel, note, nextVoiceAge_++);  // last-note priority
     return;
   }
@@ -298,12 +329,13 @@ void PDProcessor::onNoteOn(int channel, int note, float velocity) {
 }
 
 void PDProcessor::onNoteOff(int channel, int note, float velocity) {
-  if (mono_) {
-    for (int32 i = static_cast<int32>(heldNotes_.size()) - 1; i >= 0; i--) {
-      if (heldNotes_[i].channel == channel && heldNotes_[i].note == note) {
-        heldNotes_.erase(heldNotes_.begin() + i);
-      }
+  for (int32 i = static_cast<int32>(heldNotes_.size()) - 1; i >= 0; i--) {
+    if (heldNotes_[i].channel == channel && heldNotes_[i].note == note) {
+      heldNotes_.erase(heldNotes_.begin() + i);
     }
+  }
+
+  if (mono_) {
     if (voices_[0].isHeld(channel, note)) {
       if (!heldNotes_.empty()) {
         // Return to the most recently pressed key that is still held.
@@ -372,10 +404,14 @@ double PDProcessor::resample() {
 }
 
 double PDProcessor::generate() {
+  // One global LFO for the whole instrument, advanced once per tick whether or
+  // not anything is sounding, exactly like the hardware's vibrato generator.
+  double offset = pitchOffset(vibrato_.generate());
+
   double mixed = 0.0;
   for (Voice& voice : voices_) {
     if (voice.isActive()) {
-      mixed += voice.generate(pitchBend_);
+      mixed += voice.generate(offset);
     }
   }
 

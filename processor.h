@@ -9,6 +9,7 @@
 #include "pluginterfaces/vst/ivstevents.h"
 
 #include "const.h"
+#include "vibrato.h"
 #include "voice.h"
 
 namespace Steinberg {
@@ -37,14 +38,20 @@ class PDProcessor : public AudioEffect {
   ParamValue pitchBend_ = 0.0;
   ParamValue volume_ = 0.5;
   LineSelect lineSelect_ = LineSelect::kLine1;
+  Modulation modulation_ = Modulation::kOff;
   bool mono_ = false;
   int detuneOctave_ = 0;
   int detuneNote_ = 0;
   int detuneFine_ = 0;
+  // CZ OCTAVE: transposes every note by whole octaves.
+  int octaveShift_ = 0;
+  // The single global vibrato LFO, shared by all voices as on the hardware.
+  Vibrato vibrato_;
   std::array<Voice, kMaxVoices> voices_;
   uint64_t nextVoiceAge_ = 0;
-  // Keys currently held on the keyboard, in press order; used for the
-  // last-note priority behavior of mono (SOLO) mode.
+  // Keys currently held on the keyboard, in press order. Mono (SOLO) mode
+  // uses it for last-note priority, and both modes use it to tell the first
+  // key of a phrase (which restarts the vibrato delay) from a later one.
   std::vector<HeldNote> heldNotes_;
   // Normalized value of every parameter, kept for state save/load.
   std::array<ParamValue, kNumParams> paramValues_;
@@ -95,6 +102,10 @@ class PDProcessor : public AudioEffect {
 
   // Recomputes the detune ratio from octave/note/fine and broadcasts it.
   void updateDetune();
+
+  // Global pitch offset in semitones applied to every voice: pitch bend,
+  // octave shift and the current vibrato deviation.
+  double pitchOffset(double vibrato) const;
 
   // Sends note-off to every sounding voice (used when switching mono/poly).
   void releaseAllVoices();
