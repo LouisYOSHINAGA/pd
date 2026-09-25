@@ -1,24 +1,74 @@
 #include "eg.h"
 
+#include <algorithm>
 #include <cmath>
+
+#include "const.h"
+
+// CZ-101 envelope model, derived from recordings of the 16 factory presets.
+//
+// Chip side: the envelope accumulator is updated once per chip sample
+// (8.96 MHz / 256 = 35 kHz) by a step taken from a 3-bit mantissa / 4-bit
+// exponent code, step = (8 + (n & 7)) << (n >> 3), and stops at the target.
+// Targets are "level code << 18" for DCA/DCW and "semitones * 12 << 16" for
+// DCO. The CPU maps the panel rate r (0..99) to n = round(1.25 * r).
+//
+// Level encodings (panel level l = 0..99):
+//   DCA: code = l + 28 (l = 0 -> 0). The accumulator drives an exponential
+//        volume table of ~0.495 dB per code (see kVolume), so a 99 -> 0
+//        release covers 127 codes while 99 -> 75 covers only 24.
+//   DCW: code = round(127 * l / 99); depth is linear in the code.
+//   DCO: l < 64 -> l / 8 semitones, l >= 64 -> 2 * (l - 60) semitones; the
+//        pitch glides linearly in semitones.
+
+namespace Steinberg {
+namespace Vst {
 
 namespace {
 
-double kVolume[512];
+constexpr double kChipTickRate = 8.96e6 / 256.0;
+constexpr double kDcaDcwUnitScale = 1 << 18;     // chip units per level code
+constexpr double kDcoUnitScale = 12.0 * (1 << 16);  // chip units per semitone
+constexpr int kVolumeTableSize = 512;             // 9-bit index = code * 4
+constexpr double kVolumeTableOctaves = 10.5;      // 0.495 dB per level code
+constexpr double kDcwMaxDepth = 0.95;             // DCW output at code 127
+constexpr int32 kMaxPanelValue = 99;
 
+double kVolume[kVolumeTableSize];
+
+// Exponential table with integer (floored) amplitudes, as on the chip: the
+// flooring makes the last ~20 dB of a decay fall off faster than a pure
+// exponential, which matches the recorded release tails.
 struct VolumeInit {
   VolumeInit() {
-    kVolume[0] = 0.0;
-    for (int i = 1; i < 512; i++){
-      kVolume[i] = std::floor(std::pow(2.0, 13.0 * i / 511.0)) / 8192.0;
+    double full = std::exp2(kVolumeTableOctaves);
+    for (int i = 0; i < kVolumeTableSize; i++) {
+      kVolume[i] = std::floor(std::exp2(kVolumeTableOctaves * i / (kVolumeTableSize - 1))) / full;
     }
   }
 } gVolumeInit;
 
-}  // namspace
+int32 toPanelValue(ParamValue normalized) {
+  int32 value = static_cast<int32>(normalized * kMaxPanelValue + 0.5);
+  return std::clamp(value, 0, kMaxPanelValue);
+}
 
-namespace Steinberg {
-namespace Vst {
+// Panel rate (0..99) -> chip rate code: round(1.25 * rate), ties to even.
+int32 rateCode(int32 rate) {
+  int32 x = 5 * rate;
+  int32 code = x >> 2;
+  int32 rem = x & 3;
+  if (rem > 2 || (rem == 2 && (code & 1))) {
+    code++;
+  }
+  return code;
+}
+
+int32 chipStep(int32 code) {
+  return (8 + (code & 7)) << (code >> 3);
+}
+
+}  // namespace
 
 EG::EG()
     : egKind_(EgKind::kDco),  // dummy value for initialize
@@ -33,11 +83,11 @@ EG::EG()
 }
 
 void EG::setRate(int32 index, ParamValue rate) {
-  rates_[index] = rate;
+  rates_[index] = toPanelValue(rate);
 }
 
 void EG::setLevel(int32 index, ParamValue level) {
-  levels_[index] = level;
+  levels_[index] = toPanelValue(level);
 }
 
 void EG::setSustainPoint(int8 point) {
@@ -52,50 +102,54 @@ void EG::setEndPoint(int8 point) {
   endPoint_ = kEgEndPointOffset + point;
 }
 
-int32 EG::rateToDLevel(double rate) {
-  uint8 rate7bit = (uint8)(127 * rate + 0.5) & 0x7F;
-  return (8 + (rate7bit & 0x07)) << (rate7bit >> 3);
-}
-
-int EG::levelsToSign(double current, double target){
-  return (current < target)? 1 : -1;
-}
-
-int32 EG::levelToTarget(double level) const {
-  int32 target = (int32)(127 * level + 0.5) & 0x7F;
-
-  if(egKind_ == EgKind::kDco){
-    if(0x40 <= target && target <= 0x43){
-      target = 0x3F;
-    }
-    if(target & 0x40){
-      target = (target & 0x3F) << 5;
-    }
+double EG::levelToTarget(int32 level) const {
+  switch (egKind_) {
+    case EgKind::kDco:
+      return (level < 64) ? level / 8.0 : 2.0 * (level - 60);
+    case EgKind::kDcw:
+      return (127 * level + kMaxPanelValue / 2) / kMaxPanelValue;
+    case EgKind::kDca:
+      return (level == 0) ? 0.0 : level + 28.0;
+    default:  // never reached
+      return 0.0;
   }
+}
 
-  return target << kEgBitData[static_cast<int>(egKind_)].shiftUpBit_;
+double EG::rateToDLevel(int32 rate) const {
+  double unitScale = (egKind_ == EgKind::kDco) ? kDcoUnitScale : kDcaDcwUnitScale;
+  return chipStep(rateCode(rate)) * (kChipTickRate / kInternalSampleRate) / unitScale;
 }
 
 void EG::setup(EgKind egKind) {
   egKind_ = egKind;
-  level_ = 0;
-  target_ = levelToTarget(levels_[0]);
-  dLevel_ = levelsToSign(level_, target_) * rateToDLevel(rates_[0]);
-  step_ = 0;
+  level_ = 0.0;
+  enter(0);
+}
+
+void EG::enter(int8 step) {
+  step_ = step;
+  target_ = (step == endPoint_) ? 0.0 : levelToTarget(levels_[step]);  // end step always goes to 0
+  double dLevel = rateToDLevel(rates_[step]);
+  dLevel_ = (target_ < level_) ? -dLevel : dLevel;
 }
 
 void EG::restart() {
-  if (endPoint_ <= sustainPoint_) {  // sustain off
-    step_ = endPoint_;  // go to last step directly
+  if (sustainPoint_ < endPoint_) {
+    enter(sustainPoint_ + 1);  // release: continue after the sustain step
   } else {
-    step_ = sustainPoint_ + 1;
+    enter(endPoint_);  // no sustain: jump straight to the end step
   }
+}
 
-  target_ = levelToTarget(levels_[step_]);
+void EG::proceed() {
   if (step_ == endPoint_) {
-    target_ = 0;
+    halt();
+  } else if (step_ == sustainPoint_) {
+    dLevel_ = 0.0;
+    step_ = kEgStepSustain;
+  } else {
+    enter(step_ + 1);
   }
-  dLevel_ = levelsToSign(level_, target_) * rateToDLevel(rates_[step_]);
 }
 
 void EG::update() {
@@ -104,98 +158,46 @@ void EG::update() {
   }
 
   level_ += dLevel_;
-  if (step_ == endPoint_) {
-    if ((dLevel_ >= 0 && level_ >= target_) || (dLevel_ <= 0 && level_ <= target_)) {
-      halt();
-    }
-  } else if ((dLevel_ > 0 && level_ >= target_) || (dLevel_ < 0 && level_ <= target_)) {
+  if ((dLevel_ >= 0.0 && level_ >= target_) || (dLevel_ < 0.0 && level_ <= target_)) {
     level_ = target_;
-    proceed(step_);
+    proceed();
   }
 }
 
 void EG::halt() {
-  level_ = target_;
-  dLevel_ = 0;
+  dLevel_ = 0.0;
   step_ = kEgStepHalt;
 }
 
-void EG::proceed(int8 step) {
-  if (step == sustainPoint_) {
-    dLevel_ = 0;
-    step_ = kEgStepSustain;
-    return;
+double EG::output() const {
+  switch (egKind_) {
+    case EgKind::kDco:  // pitch offset in semitones
+      return level_;
+    case EgKind::kDcw:  // phase distortion depth 0..kDcwMaxDepth
+      return level_ / 127.0 * kDcwMaxDepth;
+    case EgKind::kDca: {  // amplitude 0..1
+      if (level_ <= 0.0) {
+        return 0.0;
+      }
+      int index = std::min(static_cast<int>(level_ * 4.0), kVolumeTableSize - 1);
+      return kVolume[index];
+    }
+    default:  // never reached
+      return 0.0;
   }
-
-  target_ = levelToTarget(levels_[step_ + 1]);
-  if (step == endPoint_ - 1) {
-    target_ = 0;  // target level at end point must be 0
-  }
-  dLevel_ = levelsToSign(level_, target_) * rateToDLevel(rates_[step + 1]);
-  step_ = step + 1;
-}
-
-int32 EG::levelToIndex() const {
-  int32 index = level_ >> kEgBitData[static_cast<int>(egKind_)].shiftDownBit_;
-  if(index < 0){
-    index = 0;
-  }
-  return index;
 }
 
 double EG::generate() {
-  double level;
-  switch(egKind_){
-    case EgKind::kDco:
-      level = levelToIndex() / kEgBitData[static_cast<int>(egKind_)].outReso_;  // 0..2048
-      level = 99 * level / 2048;
-      if(level < 64){
-        level = level / 8;
-      }else{
-        level = 2 * (level - 60);
-      }
-      break;
-    case EgKind::kDcw:
-      level = levelToIndex() / kEgBitData[static_cast<int>(egKind_)].outReso_;
-      break;
-    case EgKind::kDca:
-      level = kVolume[levelToIndex()];
-      break;
-    default:  // never reached
-      level = 0;  // dummy
-      break;
-  }
+  double value = output();
   update();
-  return level;
+  return value;
 }
 
 double EG::generate(bool& isEgEnd) {
-  double level;
-  switch(egKind_){
-    case EgKind::kDco:
-      level = levelToIndex() / kEgBitData[static_cast<int>(egKind_)].outReso_;  // 0..2048
-      level = 99 * level / 2048;
-      if(level < 64){
-        level = level / 8;
-      }else{
-        level = 2 * (level - 60);
-      }
-      break;
-    case EgKind::kDcw:
-      level = levelToIndex() / kEgBitData[static_cast<int>(egKind_)].outReso_;
-      break;
-    case EgKind::kDca:
-      level = kVolume[levelToIndex()];
-      break;
-    default:  // never reached
-      level = 0;  // dummy
-      break;
-  }
-
+  double value = output();
   update();
   isEgEnd = step_ == kEgStepHalt;
-
-  return level;
+  return value;
 }
 
 }  // namespace Vst

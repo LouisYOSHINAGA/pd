@@ -4,3 +4,11 @@ build-clangd/
 .clangd
 compile_commands.json
 presets/
+czenvrec/
+analysis/plots/
+analysis/render/
+analysis/**/*.npy
+analysis/harness/*.exe
+analysis/harness/*.obj
+analysis/harness/old/
+__pycache__/

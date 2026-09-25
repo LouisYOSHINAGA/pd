@@ -64,6 +64,7 @@ PD音源では、単一のcos波の位相の読み出しを歪ませることで
 
 - DCW EGのlevelが位相歪みの深さを決定する。0で純粋なcos波、99で各波形の特性が最も強く現れる。
 - End Pointに指定したstepの到達levelは常に0となる
+- EGの時間特性（rateと所要時間、levelの刻み、DCAの音量カーブ）は実機CZ-101の録音から推定したモデルに基づく（詳細は `eg.cpp` と `analysis/`）。Key Followは未実装。
 
 
 ## MIDI Implementation
