@@ -4,6 +4,7 @@
 
 - `czenvrec/presets/`: プリセット16音色（A4, note on 5 s / 周期 8 s）
 - `czenvrec/20260922/`: DCA の rate / level sweep（DCW, DCO は level 0。note on 10 s / 周期 13 s）
+- `czenvrec/20260925/`: 追加確認（Synth Bass の rate 再入力、初期化パッチの rate 24 attack）→ `check_20260925.py`
 
 必要なもの: Python 3 + numpy / scipy / matplotlib、録音 (`czenvrec/*.wav`, `CZ101PresetParam .csv`)。
 出力 (`plots/`, `render/`) は git 管理外。
