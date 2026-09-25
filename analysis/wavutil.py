@@ -1,6 +1,6 @@
 import numpy as np, wave, os
 
-REC_DIR = os.path.join(os.path.dirname(__file__), '..', 'czenvrec')
+REC_DIR = os.path.join(os.path.dirname(__file__), '..', 'czenvrec', 'presets')
 
 def load(path):
     with wave.open(path, 'rb') as w:

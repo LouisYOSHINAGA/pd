@@ -13,7 +13,9 @@ def step_of(n):
     n = int(n)
     return (8 + (n & 7)) << (n >> 3)
 
-def rate_code(r, kind='dca', rule='bank'):
+def rate_code(r, kind='dca', rule='cz'):
+    if rule == 'cz':                      # 119*r/99 + 2 (sweep-derived slope)
+        return 119*int(r)//99 + 2
     x = 1.25*r
     if rule == 'bank':
         return int(np.round(x))           # numpy: half to even
@@ -32,7 +34,7 @@ def level_code(l, kind='dca'):
         return l if l < 64 else l + 4
     raise ValueError(kind)
 
-def simulate(eg, kind, t_off, t_end, rho=1.0, rule='bank', dt=1e-4):
+def simulate(eg, kind, t_off, t_end, rho=1.0, rule='cz', dt=1e-4):
     """Return times and accumulator value (in L7 units) of one EG.
 
     eg: dict(steps=[(rate, level)...], sus=int|None, end=int)

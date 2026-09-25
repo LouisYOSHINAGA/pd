@@ -2,9 +2,9 @@
 import numpy as np
 import czeg
 
-DB_PER_UNIT = 0.495
-B_OCT = 511*DB_PER_UNIT/4/(20*np.log10(2))   # table span in octaves for 9-bit index
-_VT = np.floor(2.0**(B_OCT*np.arange(512)/511))/2.0**B_OCT
+DB_PER_UNIT = 20*np.log10(2)/12             # 1/12 octave per level code
+_I = np.arange(512)
+_VT = np.where(_I < 24, 0.0, (1024*2.0**((_I - 508)/48.0) - 0.5)/1024)
 
 def vol_amp(x, table=True):
     x = np.asarray(x, dtype=float)
@@ -15,7 +15,7 @@ def vol_amp(x, table=True):
         a = 10**(DB_PER_UNIT*(x-127)/20)
     return np.where(x <= 0, 0.0, a)
 
-def line_amps(p, t_off, t_end, dt, rho=1.0, rule='bank', table=True):
+def line_amps(p, t_off, t_end, dt, rho=1.0, rule='cz', table=True):
     use = {'1': [0], '2': [1], "1+1'": [0, 0], "1+2'": [0, 1]}[p['line_select']]
     out = []
     for li in use:
@@ -28,7 +28,7 @@ def coherent(p):
     return (p['line_select'] == "1+2'" and p['det_oct'] == 0 and p['det_note'] == 0
             and p['det_fine'] == 0)
 
-def predict_ms(p, t, win_s, rho=1.0, t_on=0.0, t_off=5.0, rule='bank', table=True):
+def predict_ms(p, t, win_s, rho=1.0, t_on=0.0, t_off=5.0, rule='cz', table=True):
     dt = t[1] - t[0]
     tt, amps = line_amps(p, t_off, t[-1] + 1.0, dt, rho, rule, table)
     if coherent(p) and len(amps) == 2:

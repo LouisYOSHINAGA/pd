@@ -1,7 +1,9 @@
 # CZ-101 Envelope Analysis
 
-`czenvrec/` の実機録音（CZ-101 プリセット16音色, A4, note on 5 s / 周期 8 s）から
-DCO/DCW/DCA EG の特性を推定し、`eg.cpp` の実装を検証するためのスクリプト群。
+`czenvrec/` の実機録音から DCO/DCW/DCA EG の特性を推定し、`eg.cpp` の実装を検証するためのスクリプト群。
+
+- `czenvrec/presets/`: プリセット16音色（A4, note on 5 s / 周期 8 s）
+- `czenvrec/20260922/`: DCA の rate / level sweep（DCW, DCO は level 0。note on 10 s / 周期 13 s）
 
 必要なもの: Python 3 + numpy / scipy / matplotlib、録音 (`czenvrec/*.wav`, `CZ101PresetParam .csv`)。
 出力 (`plots/`, `render/`) は git 管理外。
@@ -14,10 +16,14 @@ DCO/DCW/DCA EG の特性を推定し、`eg.cpp` の実装を検証するため�
 | `volcurve.py` | 減衰中の dB を accumulator 位置に対して描画 (0.495 dB/level code の確認) |
 | `pdosc.py`, `harm.py`, `plateau.py`, `dcwtrack.py` | 倍音パワーを発振器モデルと照合して DCW 値を推定 (sustain 値・時間変化) |
 | `pitch.py`, `pitch2.py` | zero-cross による DCO pitch glide の測定 |
+| `attack.py` | preset の立ち上がりを 1 ms 精度で測定（上昇も下降と同じ速度則であることの確認） |
+| `dcasweep.py`, `volcurve2.py` | sweep 録音の読み込みと、sustain 値・遅い attack からの音量カーブ復元（1/12 octave/code, 下端は -0.5 LSB 相当の落ち込み） |
 
 ## 実装との比較
 1. `harness\build.bat` で `harness/render.exe` をビルド（プラグインの `Voice`/`PD`/`EG` をそのまま使うオフラインレンダラ）。
 2. `python render_all.py new` : 16 音色を CSV のパラメータでレンダリングし、DCA 包絡の誤差を表示 (`plots/vst_vs_cz_dca_new.png`)。
 3. `python compare_dcw.py`, `python compare_dco.py` : DCW / DCO の時間変化を比較。
+4. `python compare_sweep.py` : sweep 録音と比較（level 別 sustain 値、rate 別 attack 時間）。
+   sweep 用パッチは同じ rate 値でプリセットより 22 code（約 6.7 倍）速いため、同じ rate code になる VST の rate に置き換えて比較する。
 
 旧実装と比較する場合は `harness/build_old.bat` のコメントに従って旧ソースを `harness/old/` に展開してビルドし、`python render_all.py old` を実行する。

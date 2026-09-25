@@ -5,18 +5,19 @@
 
 #include "const.h"
 
-// CZ-101 envelope model, derived from recordings of the 16 factory presets.
+// CZ-101 envelope model, derived from recordings of the 16 factory presets
+// and of DCA rate/level sweeps.
 //
 // Chip side: the envelope accumulator is updated once per chip sample
 // (8.96 MHz / 256 = 35 kHz) by a step taken from a 3-bit mantissa / 4-bit
 // exponent code, step = (8 + (n & 7)) << (n >> 3), and stops at the target.
 // Targets are "level code << 18" for DCA/DCW and "semitones * 12 << 16" for
-// DCO. The CPU maps the panel rate r (0..99) to n = round(1.25 * r).
+// DCO. The CPU maps the panel rate r (0..99) to n = 119 * r / 99 + 2.
 //
 // Level encodings (panel level l = 0..99):
 //   DCA: code = l + 28 (l = 0 -> 0). The accumulator drives an exponential
-//        volume table of ~0.495 dB per code (see kVolume), so a 99 -> 0
-//        release covers 127 codes while 99 -> 75 covers only 24.
+//        volume table of 1/12 octave (~0.5 dB) per code (see kVolume), so a
+//        99 -> 0 release covers 127 codes while 99 -> 75 covers only 24.
 //   DCW: code = round(127 * l / 99); depth is linear in the code.
 //   DCO: l < 64 -> l / 8 semitones, l >= 64 -> 2 * (l - 60) semitones; the
 //        pitch glides linearly in semitones.
@@ -30,20 +31,27 @@ constexpr double kChipTickRate = 8.96e6 / 256.0;
 constexpr double kDcaDcwUnitScale = 1 << 18;     // chip units per level code
 constexpr double kDcoUnitScale = 12.0 * (1 << 16);  // chip units per semitone
 constexpr int kVolumeTableSize = 512;             // 9-bit index = code * 4
-constexpr double kVolumeTableOctaves = 10.5;      // 0.495 dB per level code
+constexpr int kVolumeStepsPerOctave = 48;         // 1/12 octave per level code
+constexpr int kVolumeUnityIndex = 127 * 4;        // code 127 = full scale
+constexpr double kVolumeFullScale = 1024.0;       // chip amplitude at full scale
+constexpr int kVolumeSilentBelow = 24;            // code 6: output rounds to 0
 constexpr double kDcwMaxDepth = 0.95;             // DCW output at code 127
 constexpr int32 kMaxPanelValue = 99;
+constexpr int32 kRateCodeOffset = 2;              // measured on the factory presets at A4
 
 double kVolume[kVolumeTableSize];
 
-// Exponential table with integer (floored) amplitudes, as on the chip: the
-// flooring makes the last ~20 dB of a decay fall off faster than a pure
-// exponential, which matches the recorded release tails.
+// The chip amplitude is an integer, 1024 * 2^((code - 127) / 12), truncated
+// when applied to the waveform. Truncation costs half an LSB on average,
+// which makes the bottom ~20 dB of the range steeper than the 0.5 dB/code
+// line; below code ~6 nothing is left. The table stores that averaged gain
+// (it matches sustained levels within 0.15 dB and slow ramps within 0.5 dB).
 struct VolumeInit {
   VolumeInit() {
-    double full = std::exp2(kVolumeTableOctaves);
     for (int i = 0; i < kVolumeTableSize; i++) {
-      kVolume[i] = std::floor(std::exp2(kVolumeTableOctaves * i / (kVolumeTableSize - 1))) / full;
+      double amplitude = kVolumeFullScale *
+          std::exp2(static_cast<double>(i - kVolumeUnityIndex) / kVolumeStepsPerOctave);
+      kVolume[i] = (i < kVolumeSilentBelow) ? 0.0 : (amplitude - 0.5) / kVolumeFullScale;
     }
   }
 } gVolumeInit;
@@ -53,15 +61,9 @@ int32 toPanelValue(ParamValue normalized) {
   return std::clamp(value, 0, kMaxPanelValue);
 }
 
-// Panel rate (0..99) -> chip rate code: round(1.25 * rate), ties to even.
+// Panel rate (0..99) -> chip rate code (2..121).
 int32 rateCode(int32 rate) {
-  int32 x = 5 * rate;
-  int32 code = x >> 2;
-  int32 rem = x & 3;
-  if (rem > 2 || (rem == 2 && (code & 1))) {
-    code++;
-  }
-  return code;
+  return 119 * rate / kMaxPanelValue + kRateCodeOffset;
 }
 
 int32 chipStep(int32 code) {

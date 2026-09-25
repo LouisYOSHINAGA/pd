@@ -1,7 +1,7 @@
 """Parse CZ101PresetParam .csv into structured preset parameter records."""
 import csv, os, re
 
-CSV_PATH = os.path.join(os.path.dirname(__file__), '..', 'czenvrec', 'CZ101PresetParam .csv')
+CSV_PATH = os.path.join(os.path.dirname(__file__), '..', 'czenvrec', 'presets', 'CZ101PresetParam .csv')
 
 DCO_BASE = 2      # wf1, wf2, then 8*(rate,level), sus, end, keyfollow
 DCW_BASE = 23     # 8*(rate,level), sus, end, keyfollow

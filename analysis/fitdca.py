@@ -6,7 +6,7 @@ from rmsenv import analyse
 from wavutil import files
 import dcamodel as M
 
-def fit_one(f, rule='bank', table=True, fix_rho=None, t_off=5.0):
+def fit_one(f, rule='cz', table=True, fix_rho=None, t_off=5.0):
     d = analyse(f)
     p = d['preset']
     t, db = d['t'], d['db']
@@ -35,7 +35,7 @@ def fit_one(f, rule='bank', table=True, fix_rho=None, t_off=5.0):
     return dict(d=d, p=p, ton=ton, rho=rho, g=g, err=res.fun, pred=pred(ton, rho, g))
 
 if __name__ == '__main__':
-    rule = sys.argv[1] if len(sys.argv) > 1 else 'bank'
+    rule = sys.argv[1] if len(sys.argv) > 1 else 'cz'
     fix = float(sys.argv[2]) if len(sys.argv) > 2 else None
     fig, axes = plt.subplots(8, 2, figsize=(20, 30))
     for ax, f in zip(axes.T.ravel(), files()):
