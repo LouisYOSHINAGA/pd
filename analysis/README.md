@@ -4,7 +4,9 @@
 
 - `czenvrec/presets/`: プリセット16音色（A4, note on 5 s / 周期 8 s）
 - `czenvrec/20260922/`: DCA の rate / level sweep（DCW, DCO は level 0。note on 10 s / 周期 13 s）
-- `czenvrec/20260925/`: 追加確認（Synth Bass の rate 再入力、初期化パッチの rate 24 attack）→ `check_20260925.py`
+- `czenvrec/20260925/`: 追加確認（Synth Bass の rate 再入力、初期化パッチの rate 24 attack と設定の入れ直し）→ `check_20260925.py`
+  - 20260922 と 20260925 B/C の初期化パッチは表示と内部状態が食い違っており、DCA が 22 code 速く、音色も Resonance III 相当だった。
+    設定を入れ直した D はプリセットと同じ速度則（rate 24 → code 30）・純正弦波になる。
 
 必要なもの: Python 3 + numpy / scipy / matplotlib、録音 (`czenvrec/*.wav`, `CZ101PresetParam .csv`)。
 出力 (`plots/`, `render/`) は git 管理外。

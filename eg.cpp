@@ -39,7 +39,7 @@ constexpr double kVolumeFullScale = 1024.0;       // chip amplitude at full scal
 constexpr int kVolumeSilentBelow = 24;            // code 6: output rounds to 0
 constexpr double kDcwMaxDepth = 0.95;             // DCW output at code 127
 constexpr int32 kMaxPanelValue = 99;
-constexpr int32 kRateCodeOffset = 2;              // measured on the factory presets at A4
+constexpr int32 kRateCodeOffset = 2;              // A4, key follow 0 (presets and a panel-set patch)
 constexpr int32 kReleaseRateCodeMax = 104;        // fastest rate after note-off
 
 double kVolume[kVolumeTableSize];
