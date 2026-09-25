@@ -27,13 +27,25 @@ def phase(wf, t, dcw):
         return np.select([t < PI, t < PI+bp], [t, PI+sl*(t-PI)], (2*PI-e)+sr*(t-bp))
     raise ValueError(wf)
 
+def cycle(wf, t, dcw):
+    """One oscillator cycle for waveforms 1..8 (6..8: resonance, as in pd.cpp)."""
+    if wf <= 5:
+        return -np.cos(phase(wf, t, dcw))
+    k = 1 + 14*dcw
+    if wf == 6:
+        env = 1 - t/(2*PI - EPS)
+    elif wf == 7:
+        env = np.where(t < PI, EPS + (1-EPS)/PI*t, EPS + 1 - (1-EPS)/PI*(t-PI))
+    else:
+        env = np.where(t < PI, 1.0, 1 - (t-PI)/(PI-EPS))
+    return env*(-np.cos(k*t) + 1) - 1
+
 def wave(wf1, wf2, dcw, n=4096):
     """One full period (two cycles if a second waveform alternates)."""
     t = np.arange(n)/n*2*PI
-    a = -np.cos(phase(wf1, t, dcw))
+    a = cycle(wf1, t, dcw)
     if wf2:
-        b = -np.cos(phase(wf2, t, dcw))
-        return np.concatenate([a, b]), 2
+        return np.concatenate([a, cycle(wf2, t, dcw)]), 2
     return a, 1
 
 def harmonics(wf1, wf2, dcw, nharm=16):
