@@ -63,3 +63,30 @@ if __name__ == '__main__':
         print('  rate %2d (VST %2d)  CZ %s  VST %s   (-50->-1: CZ %.4f  VST %.4f)' % (
             r, VST_RATE[r], np.round(np.array(cz) - cz[0], 4), np.round(np.array(vs) - vs[0], 4),
             cz[3]-cz[0], vs[3]-vs[0]))
+
+
+def fundamental_release(x, starts, t_off=0.3, span=0.6, ms_list=(0, 1, 2, 3, 4, 6, 8, 10, 12, 15, 20)):
+    """Per-take 442 Hz band Hilbert envelope, aligned at the -3 dB crossing, median over takes."""
+    from scipy.signal import hilbert, butter, sosfiltfilt
+    sos = butter(2, [300, 600], btype='band', fs=SR, output='sos')
+    rows = []
+    for a in starts:
+        seg = x[a: a + int(span*SR)]
+        db = 20*np.log10(np.abs(hilbert(sosfiltfilt(sos, seg))) + 1e-9)
+        top = np.median(db[int((t_off-0.2)*SR): int((t_off-0.05)*SR)])
+        s0 = int((t_off-0.04)*SR)
+        k = s0 + np.argmax(db[s0:] < top - 3)
+        rows.append([db[min(len(db)-1, k + int(m*SR/1000))] - top for m in ms_list])
+    return np.median(np.array(rows), 0)
+
+if __name__ == '__main__':
+    from dcasweep import load_raw
+    print('release (step 2 = rate 99 -> 0), 442 Hz band, from -3 dB crossing: +0,1,2,3,4,6,8,10,12,15,20 ms')
+    for f, r, l in sweep_files():
+        if r != 99: continue
+        X, sr = load_raw(f); tt, S, fl, h, ons = takes(f)
+        cz = fundamental_release(X[:, 0], [int(o*h*sr) + int(9.7*sr) for o in ons])
+        y = render_sweep(99, l)
+        vs = fundamental_release(y, [int(9.7*SR)])
+        print('  level %2d  CZ  %s' % (l, ' '.join('%6.1f' % v for v in cz)))
+        print('            VST %s' % ' '.join('%6.1f' % v for v in vs))

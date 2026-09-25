@@ -39,6 +39,7 @@ class EG {
   int8 sustainPoint_;  // step index that holds until note-off, kEgSustainOff if none
   int8 endPoint_;      // index of the last step (its target is always 0)
   int8 step_;          // running step index, or kEgStepHalt / kEgStepSustain
+  bool released_;      // true after note-off
   double level_;       // accumulator, in the output unit of the EG kind
   double dLevel_;      // accumulator change per internal tick (signed)
   double target_;

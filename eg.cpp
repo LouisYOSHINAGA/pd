@@ -12,7 +12,9 @@
 // (8.96 MHz / 256 = 35 kHz) by a step taken from a 3-bit mantissa / 4-bit
 // exponent code, step = (8 + (n & 7)) << (n >> 3), and stops at the target.
 // Targets are "level code << 18" for DCA/DCW and "semitones * 12 << 16" for
-// DCO. The CPU maps the panel rate r (0..99) to n = 119 * r / 99 + 2.
+// DCO. The CPU maps the panel rate r (0..99) to n = 119 * r / 99 + 2; after
+// note-off n is limited to 104 (step 65536), so even a rate-99 release takes
+// ~14 ms from full level instead of ~3 ms.
 //
 // Level encodings (panel level l = 0..99):
 //   DCA: code = l + 28 (l = 0 -> 0). The accumulator drives an exponential
@@ -38,6 +40,7 @@ constexpr int kVolumeSilentBelow = 24;            // code 6: output rounds to 0
 constexpr double kDcwMaxDepth = 0.95;             // DCW output at code 127
 constexpr int32 kMaxPanelValue = 99;
 constexpr int32 kRateCodeOffset = 2;              // measured on the factory presets at A4
+constexpr int32 kReleaseRateCodeMax = 104;        // fastest rate after note-off
 
 double kVolume[kVolumeTableSize];
 
@@ -79,6 +82,7 @@ EG::EG()
       sustainPoint_(kEgSustainOff),  // default: Off
       endPoint_(kEgEndPointOffset),  // default: 2
       step_(kEgStepHalt),
+      released_(false),
       level_(0.0),
       dLevel_(0.0),
       target_(0.0) {
@@ -118,12 +122,17 @@ double EG::levelToTarget(int32 level) const {
 }
 
 double EG::rateToDLevel(int32 rate) const {
+  int32 code = rateCode(rate);
+  if (released_) {
+    code = std::min(code, kReleaseRateCodeMax);
+  }
   double unitScale = (egKind_ == EgKind::kDco) ? kDcoUnitScale : kDcaDcwUnitScale;
-  return chipStep(rateCode(rate)) * (kChipTickRate / kInternalSampleRate) / unitScale;
+  return chipStep(code) * (kChipTickRate / kInternalSampleRate) / unitScale;
 }
 
 void EG::setup(EgKind egKind) {
   egKind_ = egKind;
+  released_ = false;
   level_ = 0.0;
   enter(0);
 }
@@ -136,6 +145,7 @@ void EG::enter(int8 step) {
 }
 
 void EG::restart() {
+  released_ = true;
   if (sustainPoint_ < endPoint_) {
     enter(sustainPoint_ + 1);  // release: continue after the sustain step
   } else {
