@@ -6,6 +6,10 @@ like the CZ-101 does. Also cross-checks the factory-preset speed factors.
 """
 import numpy as np
 
+# Measured elsewhere: key 81 with Octave Range +1 (sounding note 93) at key follow 9, see
+# check_20260926_2.py; key follow follows the sounding note, so this is the note-93 value.
+EXTRA_POINTS = {(9, 93): 340.0}
+
 def step_of(c):
     e = np.floor(c/8)
     return (8 + (c - 8*e))*2**e
@@ -14,7 +18,9 @@ def k_table(path='keyfollow_table.npy'):
     T = np.load(path)
     # key follow 0 runs at the same speed on every key, so one reference serves all notes
     base = np.mean([step_of(ca) for kf, n, ca, cr in T if kf == 0])
-    return {(int(kf), int(n)): 12*step_of(ca)/base - 12 for kf, n, ca, cr in T if 36 <= n <= 96}
+    kt = {(int(kf), int(n)): 12*step_of(ca)/base - 12 for kf, n, ca, cr in T if 36 <= n <= 96}
+    kt.update(EXTRA_POINTS)
+    return kt
 
 def interp_k(kt, kf, note, notes):
     note = min(max(note, 36), 96)
