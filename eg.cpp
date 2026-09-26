@@ -23,6 +23,11 @@
 //   DCW: code = round(127 * l / 99); depth is linear in the code.
 //   DCO: l < 64 -> l / 8 semitones, l >= 64 -> 2 * (l - 60) semitones; the
 //        pitch glides linearly in semitones.
+//
+// DCA key follow multiplies every step speed (attack, decay and release) by
+// (12 + k) / 12, where k is an integer depending on the key follow value and
+// the note (see kDcaKeyFollowK); the after-note-off limit applies to the
+// multiplied speed.
 
 namespace Steinberg {
 namespace Vst {
@@ -41,6 +46,55 @@ constexpr double kDcwMaxDepth = 0.95;             // DCW output at code 127
 constexpr int32 kMaxPanelValue = 99;
 constexpr int32 kRateCodeOffset = 2;              // A4, key follow 0 (presets and a panel-set patch)
 constexpr int32 kReleaseRateCodeMax = 104;        // fastest rate after note-off
+constexpr int32 kKeyFollowLowestNote = 36;        // C2: the CZ-101 folds MIDI notes into C2..C7
+constexpr int32 kKeyFollowHighestNote = 96;       // C7
+constexpr int32 kKeyFollowNumNotes = kKeyFollowHighestNote - kKeyFollowLowestNote + 1;
+
+// k of the DCA key follow speed factor (12 + k) / 12, per key follow value and
+// note C2..C7, measured on a CZ-101 at C2..C7, A4, A5 and (key follow 9) every
+// note of C4..C6 and A6, interpolated geometrically in between.
+constexpr int16 kDcaKeyFollowK[kNumKeyFollowOptions][kKeyFollowNumNotes] = {
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},  // key follow 0
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,   0,   0,   0,   0,   0,   0,   1,   1,   1,   1,   1,   1,   1,
+     1,   1,   1,   1,   1,   2,   2,   2,   2,   2,   2,   3,   3},  // key follow 1
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,   1,   1,
+     1,   1,   1,   1,   1,   1,   1,   1,   2,   2,   2,   2,   3,   3,   3,   4,
+     4,   4,   5,   5,   6,   6,   7,   8,   8,   9,  10,  11,  12},  // key follow 2
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   2,   2,
+     2,   2,   2,   2,   2,   2,   3,   3,   3,   4,   4,   5,   5,   6,   7,   7,
+     8,   9,   9,  10,  11,  12,  13,  14,  15,  16,  17,  19,  20},  // key follow 3
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   2,   2,   2,   2,
+     3,   3,   3,   4,   4,   4,   5,   5,   6,   7,   7,   8,   9,  10,  11,  11,
+    12,  13,  15,  16,  18,  20,  22,  24,  27,  30,  33,  36,  40},  // key follow 4
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     1,   1,   1,   1,   1,   1,   2,   2,   2,   2,   2,   3,   3,   3,   3,   3,
+     4,   4,   5,   5,   6,   7,   7,   8,   9,  10,  11,  12,  13,  14,  15,  17,
+    18,  20,  23,  26,  29,  33,  37,  42,  47,  53,  60,  67,  76},  // key follow 5
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,
+     1,   1,   1,   1,   1,   2,   2,   2,   2,   2,   3,   3,   3,   4,   4,   5,
+     5,   6,   7,   7,   8,   9,  10,  10,  11,  13,  14,  15,  16,  18,  20,  22,
+    24,  27,  31,  36,  41,  46,  53,  60,  69,  78,  89, 102, 116},  // key follow 6
+  {  0,   0,   0,   0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,
+     1,   2,   2,   2,   2,   2,   2,   3,   3,   3,   4,   4,   5,   5,   6,   6,
+     7,   8,   9,   9,  10,  11,  12,  13,  15,  16,  18,  20,  22,  24,  28,  32,
+    36,  42,  49,  56,  65,  76,  88, 101, 118, 136, 158, 183, 212},  // key follow 7
+  {  0,   0,   0,   0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,
+     1,   2,   2,   2,   2,   2,   2,   3,   3,   3,   4,   4,   5,   6,   7,   8,
+     9,  10,  11,  13,  14,  16,  17,  19,  21,  24,  26,  29,  32,  36,  40,  44,
+    48,  57,  68,  80,  95, 113, 134, 159, 188, 223, 264, 314, 372},  // key follow 8
+  {  0,   0,   0,   0,   0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,
+     2,   2,   2,   2,   3,   3,   3,   4,   4,   4,   6,   6,   8,   8,  10,  10,
+    12,  12,  14,  16,  16,  18,  20,  20,  24,  28,  32,  36,  40,  44,  52,  60,
+    69,  82,  98, 117, 140, 167, 199, 238, 285, 340, 438, 564, 727},  // key follow 9
+};
 
 double kVolume[kVolumeTableSize];
 
@@ -73,6 +127,11 @@ int32 chipStep(int32 code) {
   return (8 + (code & 7)) << (code >> 3);
 }
 
+double dcaKeyFollowFactor(int8 keyFollow, int32 note) {
+  int32 index = std::clamp(note, kKeyFollowLowestNote, kKeyFollowHighestNote) - kKeyFollowLowestNote;
+  return (12.0 + kDcaKeyFollowK[keyFollow][index]) / 12.0;
+}
+
 }  // namespace
 
 EG::EG()
@@ -83,6 +142,8 @@ EG::EG()
       endPoint_(kEgEndPointOffset),  // default: 2
       step_(kEgStepHalt),
       released_(false),
+      keyFollow_(0),
+      speedFactor_(1.0),
       level_(0.0),
       dLevel_(0.0),
       target_(0.0) {
@@ -108,6 +169,10 @@ void EG::setEndPoint(int8 point) {
   endPoint_ = kEgEndPointOffset + point;
 }
 
+void EG::setKeyFollow(int8 value) {
+  keyFollow_ = static_cast<int8>(std::clamp<int>(value, 0, kNumKeyFollowOptions - 1));
+}
+
 double EG::levelToTarget(int32 level) const {
   switch (egKind_) {
     case EgKind::kDco:
@@ -122,16 +187,18 @@ double EG::levelToTarget(int32 level) const {
 }
 
 double EG::rateToDLevel(int32 rate) const {
-  int32 code = rateCode(rate);
+  double step = chipStep(rateCode(rate)) * speedFactor_;
   if (released_) {
-    code = std::min(code, kReleaseRateCodeMax);
+    step = std::min(step, static_cast<double>(chipStep(kReleaseRateCodeMax)));
   }
   double unitScale = (egKind_ == EgKind::kDco) ? kDcoUnitScale : kDcaDcwUnitScale;
-  return chipStep(code) * (kChipTickRate / kInternalSampleRate) / unitScale;
+  return step * (kChipTickRate / kInternalSampleRate) / unitScale;
 }
 
-void EG::setup(EgKind egKind) {
+void EG::setup(EgKind egKind, int32 note) {
   egKind_ = egKind;
+  // key follow is only modeled for the DCA so far
+  speedFactor_ = (egKind == EgKind::kDca) ? dcaKeyFollowFactor(keyFollow_, note) : 1.0;
   released_ = false;
   level_ = 0.0;
   enter(0);

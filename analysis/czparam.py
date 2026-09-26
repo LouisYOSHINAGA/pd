@@ -66,12 +66,14 @@ def load():
             line = {
                 'wf1': _num(r[DCO_BASE]),
                 'wf2': _num(r[DCO_BASE + 1]),
+                # the two "Key Follow Range" columns are, in order, DCW and DCA key
+                # follow (the CZ-101 has no DCO key follow)
                 'dco': {'steps': _steps(r, DCO_BASE + 2), 'sus': _num(r[DCO_BASE + 18]),
-                        'end': _num(r[DCO_BASE + 19]), 'kf': _num(r[DCO_BASE + 20])},
+                        'end': _num(r[DCO_BASE + 19]), 'kf': None},
                 'dcw': {'steps': _steps(r, DCW_BASE), 'sus': _num(r[DCW_BASE + 16]),
-                        'end': _num(r[DCW_BASE + 17]), 'kf': _num(r[DCW_BASE + 18])},
+                        'end': _num(r[DCW_BASE + 17]), 'kf': _num(r[DCO_BASE + 20])},
                 'dca': {'steps': _steps(r, DCA_BASE), 'sus': _num(r[DCA_BASE + 16]),
-                        'end': _num(r[DCA_BASE + 17]), 'kf': None},
+                        'end': _num(r[DCA_BASE + 17]), 'kf': _num(r[DCW_BASE + 18])},
             }
             p['lines'].append(line)
         presets.append(p)

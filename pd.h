@@ -112,11 +112,12 @@ class PD {
   virtual void setWaveformSecond(int8 selection);  // 0 = Off, 1..8 = waveform index + 1
   virtual void resetPhase();
   virtual double generate(double freq, bool& isDcaEnd);
-  virtual void setupEg();
+  virtual void setupEg(int32 note);  // note: MIDI note after the octave range shift
   virtual void setEgRate(EgKind kind, int32 index, ParamValue rate);
   virtual void setEgLevel(EgKind kind, int32 index, ParamValue level);
   virtual void setEgSustainPoint(EgKind kind, int8 point);
   virtual void setEgEndPoint(EgKind kind, int8 point);
+  virtual void setDcaKeyFollow(int8 value);
   virtual void restartEg();
   virtual void haltEg();
 };

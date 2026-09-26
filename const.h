@@ -14,8 +14,9 @@ constexpr double kA4Freq = 440.0;
 constexpr double kEpsilon = 0.00001;
 
 // Version tag written at the head of the processor state stream.
-// v2 appended kParamCcEditLine; v1 streams are still readable.
-constexpr int kStateVersion = 3;
+// v2 appended kParamCcEditLine, v3 the mono/poly triggers, v4 the octave
+// range and the DCA key follow; older streams are still readable.
+constexpr int kStateVersion = 4;
 
 // Oscilloscope: the processor streams frames of recent output samples to the
 // controller as messages; the editor's scope view renders the latest frame.
@@ -91,6 +92,13 @@ constexpr int kDetuneNoteRange = 11;
 constexpr int kDetuneFineRange = 60;
 constexpr double kDetuneFineStepCents = 100.0 / kDetuneFineRange;
 
+// CZ OCTAVE RANGE: -1 / 0 / +1 octave on both lines. Key follow uses the
+// shifted note, as on the hardware.
+constexpr int kOctaveRangeMax = 1;
+
+// CZ KEY FOLLOW values 0..9 (implemented for the DCA).
+constexpr int kNumKeyFollowOptions = 10;
+
 // Number of states of the second-waveform selector: "Off" + the 8 waveforms.
 constexpr int kNumSecondWaveformOptions = 9;
 
@@ -128,8 +136,25 @@ enum ParamId {
   kParamMonoTrigger,  // dummy to receive CC 126 (Mono Mode On)
   kParamPolyTrigger,  // dummy to receive CC 127 (Poly Mode On)
 
+  // Appended in state v4.
+  kParamOctaveRange,
+  kParamLine1DcaKeyFollow,
+  kParamLine2DcaKeyFollow,
+
   kNumParams
 };
+
+// Number of parameters stored by a processor state stream of `version`
+// (parameters are only ever appended), or 0 if the version is unknown.
+inline int32_t numParamsOfStateVersion(int32_t version) {
+  switch (version) {
+    case 1: return kParamCcEditLine;
+    case 2: return kParamMonoTrigger;
+    case 3: return kParamOctaveRange;
+    case kStateVersion: return kNumParams;
+    default: return 0;
+  }
+}
 
 enum class Waveform {
   kSawTooth,

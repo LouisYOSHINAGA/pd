@@ -209,9 +209,9 @@ double PD::generate(double freq, bool& isDcaEnd) {
   return eg(EgKind::kDca).generate(isDcaEnd) * generator->generate(phasetime_);
 }
 
-void PD::setupEg() {
+void PD::setupEg(int32 note) {
   for (int i = 0; i < static_cast<int>(EgKind::kNumEgKinds); i++) {
-      egs_[i].setup(static_cast<EgKind>(i));
+      egs_[i].setup(static_cast<EgKind>(i), note);
   }
 }
 
@@ -229,6 +229,10 @@ void PD::setEgSustainPoint(EgKind kind, int8 point) {
 
 void PD::setEgEndPoint(EgKind kind, int8 point) {
   eg(kind).setEndPoint(point);
+}
+
+void PD::setDcaKeyFollow(int8 value) {
+  eg(EgKind::kDca).setKeyFollow(value);
 }
 
 void PD::restartEg() {

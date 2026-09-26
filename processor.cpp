@@ -31,6 +31,7 @@ ParamValue PDProcessor::defaultParamValue(int32 paramId) {
     case kParamDetuneOctave:  // signed parameters center on 0.5
     case kParamDetuneNote:
     case kParamDetuneFine:
+    case kParamOctaveRange:
       return 0.5;
     case kParamVolume:
       return 0.5;
@@ -124,6 +125,16 @@ void PDProcessor::applyParameter(int32 paramId, ParamValue value) {
     for (Voice& voice : voices_) {
       voice.setLineParam(line, offset, value);
     }
+  } else if (paramId == kParamOctaveRange) {
+    int octave = decodeSignedOption(value, kOctaveRangeMax);
+    for (Voice& voice : voices_) {
+      voice.setOctaveRange(octave);
+    }
+  } else if (paramId == kParamLine1DcaKeyFollow || paramId == kParamLine2DcaKeyFollow) {
+    int8 keyFollow = static_cast<int8>(decodeOptionIndex(value, kNumKeyFollowOptions));
+    for (Voice& voice : voices_) {
+      voice.setDcaKeyFollow(paramId - kParamLine1DcaKeyFollow, keyFollow);
+    }
   }
   // kParamCcEditLine only affects the controller's MIDI CC routing.
 }
@@ -204,12 +215,8 @@ tresult PLUGIN_API PDProcessor::setState(IBStream* state) {
   if (!streamer.readInt32(version)) {
     return kResultFalse;
   }
-  int32 numParams;
-  if (version == kStateVersion) {
-    numParams = kNumParams;
-  } else if (version == 1) {  // v1 predates kParamCcEditLine
-    numParams = kParamCcEditLine;
-  } else {
+  int32 numParams = numParamsOfStateVersion(version);
+  if (numParams == 0) {
     return kResultFalse;
   }
   for (int32 paramId = 0; paramId < numParams; paramId++) {
@@ -218,6 +225,10 @@ tresult PLUGIN_API PDProcessor::setState(IBStream* state) {
       return kResultFalse;
     }
     applyParameter(paramId, value);
+  }
+  // parameters appended after the stream's version start from their defaults
+  for (int32 paramId = numParams; paramId < kNumParams; paramId++) {
+    applyParameter(paramId, defaultParamValue(paramId));
   }
   return kResultTrue;
 }

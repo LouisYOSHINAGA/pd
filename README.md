@@ -55,16 +55,19 @@ PD音源では、単一のcos波の位相の読み出しを歪ませることで
 | Line Select | {1, 2, 1+1', 1+2'} | LINE構成の選択 |
 | Mono/Poly | Poly / Mono | 発音モード |
 | Detune Octave / Note / Fine | ±3 / ±11 / ±60 | Prime側のLINE（`1'`, `2'`）のdetune |
+| Octave Range | {-1, 0, +1} | 両LINEの音程をオクターブ単位でシフト（Key Followもシフト後の音程で決まる） |
 | L1/L2 Waveform 1st | 8波形 | 各LINEの第1波形 |
 | L1/L2 Waveform 2nd | {8波形, Off} | 各LINEの第2波形（optional）|
 | L1/L2 {DCO, DCW, DCA} EG Rate 1–8 | {0..99} | 各stepの遷移速度 |
 | L1/L2 {DCO, DCW, DCA} EG Lvl 1–7 | {0..99} | 各stepの到達level |
 | L1/L2 {DCO, DCW, DCA} EG Sustain Point | {1..7, Off} | envelopeのsustain step（optional） |
 | L1/L2 {DCO, DCW, DCA} EG End Point | {2..8} | envelopeの最終step |
+| L1/L2 DCA Key Follow | {0..9} | 高い音ほどDCA envelopeを速くする度合い（0で無効） |
 
 - DCW EGのlevelが位相歪みの深さを決定する。0で純粋なcos波、99で各波形の特性が最も強く現れる。
 - End Pointに指定したstepの到達levelは常に0となる
-- EGの時間特性（rateと所要時間、levelの刻み、DCAの音量カーブ）は実機CZ-101の録音から推定したモデルに基づく（詳細は `eg.cpp` と `analysis/`）。Key Followは未実装。
+- EGの時間特性（rateと所要時間、levelの刻み、DCAの音量カーブ）は実機CZ-101の録音から推定したモデルに基づく（詳細は `eg.cpp` と `analysis/`）。
+- DCA Key Followは全step（attack/decay/release）の速さに鍵盤位置と値で決まる倍率を掛ける（C2で等倍、実測値に基づく）。鍵盤位置はC2..C7に丸めて評価する。DCW Key Followは未実装。
 
 
 ## MIDI Implementation
@@ -87,6 +90,8 @@ CCがどちらのLINEを編集するかは`CC Edit Line`パラメータで選択
 | Line Select | CC 9 | [param] Line Select |
 | Detune {Octave,Note,Fine} | CC {85,86,87} | [param] Detune {Octave,Note,Fine} |
 | Wavefome {1,2} | CC {89,90} | [param] L1/L2 Waveform {1st,2nd} |
+| Octave Range | CC 31 | 0..42: -1, 43..84: 0, 85..127: +1 |
+| DCA Key Follow | CC 119 | [param] L1/L2 DCA Key Follow（対象LINEは`CC Edit Line`で選択） |
 
 | Target EG | Rate 1..8 | Lvl 1..7 | Sustain Point | End Point |
 |---|---|---|---|---|

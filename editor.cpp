@@ -16,6 +16,7 @@
 #include "vstgui/lib/controls/ctextlabel.h"
 
 #include "controller.h"
+#include "eg.h"
 
 namespace Steinberg {
 namespace Vst {
@@ -510,6 +511,12 @@ void PDEditor::buildGlobalRow(CFrame* frame) {
     x += 62;
   }
 
+  addLabel(frame, CRect(820, 76, 920, 90), "OCTAVE", skin().textDim, 11, true);
+  addSegmentButton(frame, CRect(820, 94, 1000, 126), kParamOctaveRange, {"-1", "0", "+1"});
+  bindings_[kParamOctaveRange].control->setTooltipText(
+    "Octave range: shifts both lines (key follow follows the shifted note)"
+  );
+
   addLabel(frame, CRect(700, 76, 760, 90), "SKIN", skin().textDim, 11, true);
   COptionMenu* skinMenu = new COptionMenu(CRect(700, 94, 800, 118), this, kSkinMenuTag);
   for (int32 i = 0; i < kNumSkins; i++) {
@@ -550,6 +557,10 @@ void PDEditor::buildLinePanel(CFrame* frame, double x, int32 lineBase, const cha
   std::vector<std::string> endEntries;
   for (int i = 0; i < kNumEgEndPointOptions; i++) {
     endEntries.push_back(std::to_string(i + 2));
+  }
+  std::vector<std::string> keyFollowEntries;
+  for (int i = 0; i < kNumKeyFollowOptions; i++) {
+    keyFollowEntries.push_back(std::to_string(i));
   }
 
   for (int32 egIndex = 0; egIndex < 3; egIndex++) {
@@ -601,6 +612,15 @@ void PDEditor::buildLinePanel(CFrame* frame, double x, int32 lineBase, const cha
     addMenu(panel, CRect(448, top + 33, 500, top + 53), strip.sustainTag, sustainEntries);
     addLabel(panel, CRect(410, top + 74, 448, top + 88), "END", skin().textDim, 10);
     addMenu(panel, CRect(448, top + 71, 500, top + 91), strip.endTag, endEntries);
+
+    if (egIndex == static_cast<int32>(EgKind::kDca)) {
+      ParamID keyFollowTag = lineIndex == 0 ? kParamLine1DcaKeyFollow : kParamLine2DcaKeyFollow;
+      addLabel(panel, CRect(410, top + 112, 448, top + 126), "KEY F", skin().textDim, 10);
+      addMenu(panel, CRect(448, top + 109, 500, top + 129), keyFollowTag, keyFollowEntries);
+      bindings_[keyFollowTag].control->setTooltipText(
+        "DCA key follow: faster envelope on higher notes (0 = off)"
+      );
+    }
 
     stripByStyleTag_[strip.sustainTag] = strips_.size();
     stripByStyleTag_[strip.endTag] = strips_.size();

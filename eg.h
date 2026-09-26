@@ -40,6 +40,8 @@ class EG {
   int8 endPoint_;      // index of the last step (its target is always 0)
   int8 step_;          // running step index, or kEgStepHalt / kEgStepSustain
   bool released_;      // true after note-off
+  int8 keyFollow_;     // key follow value 0..9
+  double speedFactor_; // key follow speed factor of the current note
   double level_;       // accumulator, in the output unit of the EG kind
   double dLevel_;      // accumulator change per internal tick (signed)
   double target_;
@@ -57,7 +59,10 @@ class EG {
   virtual void setLevel(int32 index, ParamValue level);
   virtual void setSustainPoint(int8 point);
   virtual void setEndPoint(int8 point);
-  virtual void setup(EgKind egKind);
+  virtual void setKeyFollow(int8 value);
+  // Starts the envelope for a note-on; `note` is the MIDI note after the
+  // octave range shift (it selects the key follow speed).
+  virtual void setup(EgKind egKind, int32 note);
   virtual void restart();
   virtual void halt();
   virtual double generate();

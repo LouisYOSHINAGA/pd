@@ -185,6 +185,26 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
   ccEditLine->appendString(STR16("Line 2"));
   parameters.addParameter(ccEditLine);
 
+  // octave range (CZ OCTAVE RANGE), shifts both lines and the key follow note
+  StringListParameter* octaveRange = new StringListParameter(STR16("Octave Range"),
+                                                             kParamOctaveRange);
+  octaveRange->appendString(STR16("-1"));
+  octaveRange->appendString(STR16("0"));
+  octaveRange->appendString(STR16("+1"));
+  octaveRange->getInfo().defaultNormalizedValue = 0.5;
+  octaveRange->setNormalized(0.5);
+  parameters.addParameter(octaveRange);
+
+  // DCA key follow per line: faster DCA envelopes on higher notes
+  parameters.addParameter(new DiscreteRangeParameter(
+    STR16("L1 DCA Key Follow"), kParamLine1DcaKeyFollow, nullptr,
+    kNumKeyFollowOptions - 1, 0, kNumKeyFollowOptions - 1, 0
+  ));
+  parameters.addParameter(new DiscreteRangeParameter(
+    STR16("L2 DCA Key Follow"), kParamLine2DcaKeyFollow, nullptr,
+    kNumKeyFollowOptions - 1, 0, kNumKeyFollowOptions - 1, 0
+  ));
+
   return kResultTrue;
 }
 
@@ -300,14 +320,8 @@ tresult PLUGIN_API PDController::setComponentState(IBStream* state) {
   if (!streamer.readInt32(version)) {
     return kResultFalse;
   }
-  int32 numParams;
-  if (version == kStateVersion) {
-    numParams = kNumParams;
-  } else if (version == 2) {
-    numParams = kParamMonoTrigger;
-  } else if (version == 1) {  // v1 predates kParamCcEditLine
-    numParams = kParamCcEditLine;
-  } else {
+  int32 numParams = numParamsOfStateVersion(version);
+  if (numParams == 0) {
     return kResultFalse;
   }
   for (int32 paramId = 0; paramId < numParams; paramId++) {
@@ -316,6 +330,12 @@ tresult PLUGIN_API PDController::setComponentState(IBStream* state) {
       return kResultFalse;
     }
     setParamNormalized(paramId, value);
+  }
+  // parameters appended after the stream's version start from their defaults
+  for (int32 paramId = numParams; paramId < kNumParams; paramId++) {
+    if (Parameter* parameter = getParameterObject(paramId)) {
+      setParamNormalized(paramId, parameter->getInfo().defaultNormalizedValue);
+    }
   }
   return kResultTrue;
 }
@@ -418,6 +438,10 @@ constexpr CtrlNumber kDetuneFine = 87;
 constexpr CtrlNumber kCcEditWaveformFirst = 89;
 // second waveform selection (values 0..127 -> waveform {Off, 1..8})
 constexpr CtrlNumber kCcEditWaveformSecond = 90;
+// octave range (values 0..127 -> {-1, 0, +1}); right after the DCO EG block
+constexpr CtrlNumber kCcOctaveRange = 31;
+// DCA key follow of the CC edit line (values 0..127 -> 0..9); right after the DCA EG block
+constexpr CtrlNumber kCcEditDcaKeyFollow = 119;
 // mono mode on
 constexpr CtrlNumber kMonoModeOn = 126;
 // poly mode on
@@ -484,6 +508,13 @@ tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int
       return kResultTrue;
     case kDetuneFine:
       id = kParamDetuneFine;
+      return kResultTrue;
+    case kCcOctaveRange:
+      id = kParamOctaveRange;
+      return kResultTrue;
+    case kCcEditDcaKeyFollow:
+      id = getParamNormalized(kParamCcEditLine) < 0.5 ? kParamLine1DcaKeyFollow
+                                                      : kParamLine2DcaKeyFollow;
       return kResultTrue;
     default:
       break;

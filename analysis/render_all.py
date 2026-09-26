@@ -33,15 +33,20 @@ def line_params(line):
         v[base+16] = (end-2)/6.0
     return v
 
-def render(p, gate=5.0, total=8.0, tag='new'):
+def render(p, gate=5.0, total=8.0, tag='new', key_follow=True):
     st = detune_semitones(p)
     ratio = 2**(st/12.0)
-    note = 69 + 12*(p['octave_range'] or 0)
+    octave = p['octave_range'] or 0
     fn = os.path.join(OUT, '%02d_%s.txt' % (p['no'], tag))
     with open(fn, 'w') as f:
+        # the old harness has no octave range: shift the note instead
+        note = 69 + 12*octave if tag == 'old' else 69
         f.write('%d %.12f %d %f %f\n' % (LS[p['line_select']], ratio, note, gate, total))
         for line in p['lines']:
             f.write(' '.join('%.12f' % x for x in line_params(line)) + '\n')
+        if tag != 'old':
+            kfs = [(line['dca']['kf'] or 0) if key_follow else 0 for line in p['lines']]
+            f.write('%d %d %d\n' % (octave, kfs[0], kfs[1]))
     raw = fn.replace('.txt', '.raw')
     subprocess.run([EXE, fn, raw], check=True)
     y = np.fromfile(raw, dtype=np.float32).astype(np.float64)
@@ -59,7 +64,7 @@ if __name__ == '__main__':
     for ax, f in zip(axes.T.ravel(), files()):
         d = analyse(f)
         p = d['preset']
-        y = render(p, tag=tag)
+        y = render(p, tag=tag, key_follow=(tag != 'nokf'))
         pad = int(0.5*SR)
         tm, dbm = env_db(np.concatenate([np.zeros(pad), y]), d['win_s'])
         tm = tm - 0.5

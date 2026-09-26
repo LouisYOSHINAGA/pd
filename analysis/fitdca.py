@@ -41,9 +41,9 @@ if __name__ == '__main__':
     for ax, f in zip(axes.T.ravel(), files()):
         r = fit_one(f, rule, fix_rho=fix)
         p, d = r['p'], r['d']
-        print('%2d %-18s ton=%+.3f rho=%.3f  mean|err|=%.2f dB   (kf dcoblk=%s dcwblk=%s)'
+        print('%2d %-18s ton=%+.3f rho=%.3f  mean|err|=%.2f dB   (key follow DCW=%s DCA=%s)'
               % (p['no'], p['name'], r['ton'], r['rho'], r['err'],
-                 p['lines'][0]['dco']['kf'], p['lines'][0]['dcw']['kf']), flush=True)
+                 p['lines'][0]['dcw']['kf'], p['lines'][0]['dca']['kf']), flush=True)
         top = d['db'].max()
         ax.plot(d['t'], d['db'] - top, lw=0.8, label='rec')
         ax.plot(d['t'], r['pred'] - top, lw=0.8, label='model')

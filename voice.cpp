@@ -14,6 +14,7 @@ Voice::Voice()
     : egEnded_{},
       lineSelect_(LineSelect::kLine1),
       detuneRatio_(1.0),
+      octaveRange_(0),
       channel_(-1),
       note_(-1),
       baseFreq_(0.0),
@@ -41,13 +42,14 @@ uint64_t Voice::age() const {
 void Voice::noteOn(int channel, int note, uint64_t age) {
   channel_ = channel;
   note_ = note;
-  baseFreq_ = noteToFreq(note);
+  int soundingNote = note + 12 * octaveRange_;
+  baseFreq_ = noteToFreq(soundingNote);
   age_ = age;
   held_ = true;
   active_ = true;
   for (PD& pd : pds_) {
     pd.resetPhase();
-    pd.setupEg();
+    pd.setupEg(soundingNote);
   }
   egEnded_.fill(false);
 }
@@ -112,6 +114,19 @@ void Voice::setLineSelect(LineSelect lineSelect) {
 
 void Voice::setDetuneRatio(double ratio) {
   detuneRatio_ = ratio;
+}
+
+void Voice::setOctaveRange(int octave) {
+  octaveRange_ = octave;
+}
+
+void Voice::setDcaKeyFollow(int32 line, int8 value) {
+  if (line == 0) {
+    pds_[kUnitLine1].setDcaKeyFollow(value);
+    pds_[kUnitLine1Detuned].setDcaKeyFollow(value);
+  } else {
+    pds_[kUnitLine2].setDcaKeyFollow(value);
+  }
 }
 
 void Voice::setLineParam(int32 line, int32 offset, ParamValue value) {

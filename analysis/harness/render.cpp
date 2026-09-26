@@ -1,7 +1,8 @@
 // Offline renderer: drives the plugin's Voice/PD/EG classes directly.
 // usage: render <params.txt> <out.raw>
 // params.txt: "<lineSelect> <detuneRatio> <note> <gateSeconds> <totalSeconds>"
-//             followed by 2 lines of kNumLineParams normalized values.
+//             followed by 2 lines of kNumLineParams normalized values and
+//             optionally "<octave> <line-1 DCA key follow> <line-2 DCA key follow>".
 #include <cstdio>
 #include <vector>
 #include "voice.h"
@@ -22,6 +23,13 @@ int main(int argc, char** argv) {
       double v; if (std::fscanf(f, "%lf", &v) != 1) return 1;
       voice.setLineParam(line, k, v);
     }
+  }
+  // optional: octave range and DCA key follow of line 1 / line 2
+  int octave, kf1, kf2;
+  if (std::fscanf(f, "%d %d %d", &octave, &kf1, &kf2) == 3) {
+    voice.setOctaveRange(octave);
+    voice.setDcaKeyFollow(0, static_cast<Steinberg::int8>(kf1));
+    voice.setDcaKeyFollow(1, static_cast<Steinberg::int8>(kf2));
   }
   std::fclose(f);
   const int n = static_cast<int>(total * kInternalSampleRate);
