@@ -56,7 +56,8 @@ if __name__ == '__main__':
         table[(kf, note)] = (code_of_speed(att[0]/DB_PER_CODE), att, code_of_speed(rel[0]/DB_PER_CODE), rel,
                              np.median([m[2] for m in ms]))
         f0s[note] = f0
-    notes = sorted(set(n for _, n in table))
+    notes = sorted(n for n in set(n for _, n in table) if all((kf, n) in table for kf in range(10)))
+    chroma = sorted(n for kf, n in table if kf == 9 and n not in notes)
     print('attack rate code n (rate 24; key follow 0 expectation = 30)')
     print('  kf / note ' + ' '.join('%7d' % n for n in notes))
     for kf in range(10):
@@ -71,6 +72,9 @@ if __name__ == '__main__':
     for kf in range(10):
         print('  %2d        ' % kf + ' '.join('%7.2f' % (table[(kf, n)][4] - table[(0, n)][4])
                                           if (kf, n) in table else '      -' for n in notes))
+    print('key follow 9, chromatic: k = 12F - 12')
+    print('  ' + ' '.join('%d:%.1f' % (n, 12*step_of(table[(9, n)][0])/step_of(table[(0, 60 if n < 69 else (69 if n < 72 else (72 if n < 81 else (81 if n < 84 else 84))))][0]) - 12)
+                        for n in sorted(chroma + [n for n in notes if 60 <= n <= 84])))
     print('release rate code n (rate 99 after note-off)')
     for kf in range(10):
         print('  %2d        ' % kf + ' '.join('%7.2f' % table[(kf, n)][2] if (kf, n) in table else '      -' for n in notes))
