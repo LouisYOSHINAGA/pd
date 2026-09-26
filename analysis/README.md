@@ -22,6 +22,7 @@
 | `pdosc.py`, `harm.py`, `plateau.py`, `dcwtrack.py` | 倍音パワーを発振器モデルと照合して DCW 値を推定 (sustain 値・時間変化) |
 | `pitch.py`, `pitch2.py` | zero-cross による DCO pitch glide の測定 |
 | `attack.py` | preset の立ち上がりを 1 ms 精度で測定（上昇も下降と同じ速度則であることの確認） |
+| `gate.py` | 実機の発音長（attack 開始 → release 開始）と MIDI の gate の差（note off の反応遅れ、約 +12 ms）の測定 |
 | `fastrms.py` | 1 周期窓 RMS による高速な attack / release の測定（note off 後の rate 上限 code 104 の確認） |
 | `dcasweep.py`, `volcurve2.py` | sweep 録音の読み込みと、sustain 値・遅い attack からの音量カーブ復元（1/12 octave/code, 下端は -0.5 LSB 相当の落ち込み） |
 
