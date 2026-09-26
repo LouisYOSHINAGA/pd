@@ -10,8 +10,8 @@
 - `czenvrec/20260926_2/`: rate 36 での Key Follow（attack/release とも同倍率）と Octave Range +1 の確認（Key Follow は鳴っている音程で決まる）→ `check_20260926_2.py`
 - `czenvrec/20260926/`: DCA Key Follow 0〜9 × 鍵 C1〜C8（24〜108）→ `keyfollow2.py`（attack/release の rate code、速度比、sustain）、`keyfollow_model.py`（速度比 F = (12+k)/12 の補間モデルと検証、k の表 `dca_keyfollow_k.csv` を生成）
   - 20260922 と 20260925 B/C の初期化パッチは表示と内部状態が食い違っており、DCA が 22 code 速く、音色も Resonance III 相当だった。
-- `czenvrec/20260927_2/`: DCW Key Follow 0/5/9 × 鍵 36〜96（DCW rate 24 で 99 まで上昇）→ `dcwkf.py`（倍音照合による dcw(t)）、`dcwkf2.py`（同じ鍵どうしの比較で上昇が止まる level code を求める）
-  - Key Follow で DCW の速度は変わらず、高音で DCW の上限が下がる。KF 0 でも高音では上限があり、`1 - 0.9025*code/127 = k*f`（k ≈ 2.2e-4 s、KF 9 は 4.8e-4 s）でよく合う。KF 5 は KF 0 と区別できない。
+- `czenvrec/20260927_2/`, `20260927_3/`: DCW Key Follow × 鍵（DCW rate 24 で 99 まで上昇。_3 は KF 0/5/9 の再録音）→ `dcwkf.py`（倍音照合による dcw(t)）、`dcwkf2.py`（上昇が止まる level code）
+  - Key Follow で DCW の速度は変わらず、高音で DCW の上限が下がる。KF 0 でも高音では上限があり、127 - code ≈ 0.024*f[Hz]。note 72 では KF 1〜7 は KF 0 と同じで、KF 8, 9 で上限が下がる。
     設定を入れ直した D はプリセットと同じ速度則（rate 24 → code 30）・純正弦波になる。
 
 必要なもの: Python 3 + numpy / scipy / matplotlib、録音 (`czenvrec/*.wav`, `CZ101PresetParam .csv`)。

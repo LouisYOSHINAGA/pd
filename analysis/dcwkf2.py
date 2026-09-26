@@ -1,16 +1,16 @@
-"""Same-note comparisons for the DCW key follow recordings (czenvrec/20260927_2).
+"""Same-note comparisons for the DCW key follow recordings (czenvrec/20260927_2, _3).
 
 DCW step 1 = (24, 99) rises 14.95 codes/s, so the level code at which the rise stops is
-known from the stop time. The stop time is found by comparing H2/H1 and H3/H1 with the
-note 36 KF 0 take (never stops within the hold), shifted by a per-note offset fitted over
-1..3 s (removes the output frequency response). Also compares KF 5 with KF 0.
+known from the stop time. The stop time is the knee of a line + flat fit to dcw(t) of
+dcwkf.dcw_track (checked against the time at which KF 9 departs from KF 0 at the same
+note: agrees within 0.05 s). Also compares KF 5 with KF 0.
 
-Result: the DCW rate is unchanged by key follow; instead the DCW level is limited at high
-notes, even at KF 0. The limit fits  1 - 0.9025*code/127 = k*f  (f = oscillator frequency,
-0.9025 = full-scale depth of the oscillator model), k ~ 2.25e-4 s at KF 0/5, ~4.8e-4 s at KF 9.
+Result: the DCW rate is unchanged by key follow; instead the DCW level stops at a lower
+value at high notes, even at KF 0 (127 - code ~ 0.024*f at KF 0). KF 1..7 behave like KF 0
+at note 72; KF 8 and 9 lower the limit.
 """
 import numpy as np
-from dcwkf import files, load, onsets
+from dcwkf import files, load, onsets, dcw_track
 
 CODES_PER_S = (8 + 6) * 8 * (8.96e6/256) / (1 << 18)     # rate 24 -> code 30 -> step 112
 
@@ -30,22 +30,25 @@ def spectra(f, note, hold=7.9, hop_s=0.02):
     r = 10*np.log10(P + 1e-30)
     return (np.arange(nfr)*H + N/2)/sr, r - r[:, :1]          # harmonics relative to H1
 
-def stop_times(tabs):
-    S = {k: spectra(f, k[1]) for k, f in tabs.items()}
-    t = S[(0, 36)][0]
-    ref = S[(0, 36)][1]
-    sm = lambda y: np.convolve(y, np.ones(9)/9, mode='same')
-    out = {}
-    for key, (_, r) in S.items():
-        ts, late = [], []
-        for h in (1, 2):
-            fit = (t > 1.0) & (t < 3.0)
-            g = sm(ref[:, h]) + np.mean(r[fit, h] - ref[fit, h])
-            plateau = np.median(r[-10:, h])
-            ts.append(np.interp(plateau, g[10:-5], t[10:-5]))
-            late.append(np.polyfit(t[-20:], r[-20:, h], 1)[0])
-        out[key] = (np.mean(ts), max(late) > 0.2, r[-10:, 1].mean())
-    return out
+def hinge(t, y, t0=1.0):
+    """Knee time of a curve that rises linearly and then stays flat."""
+    m = t > t0; t, y = t[m], y[m]
+    best = (np.inf, None)
+    for ts in t[5:-3]:
+        A = np.stack([np.ones_like(t), np.minimum(t - ts, 0)], 1)
+        c = np.linalg.lstsq(A, y, rcond=None)[0]
+        best = min(best, (np.sum((A @ c - y)**2), ts))
+    return best[1]
+
+def stop_code(f, note):
+    """Level code at which the DCW stops; None if still rising, 0 if no DCW at all."""
+    t, r = spectra(f, note)
+    if np.median(r[-10:, 1]) < -40:                 # pure sine
+        return 0.0
+    if np.polyfit(t[-15:], r[-15:, 1], 1)[0] > 0.2:  # H2/H1 still rising (dB/s)
+        return None
+    t, est, _ = dcw_track(f, note)
+    return CODES_PER_S*hinge(t, est)
 
 if __name__ == '__main__':
     tabs = {(kf, n): f for f, kf, n in files()}
@@ -55,20 +58,24 @@ if __name__ == '__main__':
         t, a = spectra(tabs[(0, n)], n); _, b = spectra(tabs[(5, n)], n)
         m = (a[:, 1] > -30)
         print('   note %3d: %.2f dB' % (n, np.median(np.abs(a[m, 1:3] - b[m, 1:3]))))
-    st = stop_times(tabs)
-    print('level code at which the DCW rise stops ("-": still rising at the end of the hold)')
-    print('   kf ' + ''.join('%8d' % n for n in notes))
-    for kf in (0, 5, 9):
+    runs = {}
+    for sub in ('20260927_2', '20260927_3'):
+        for f, kf, n in files(sub):
+            runs.setdefault((kf, n), []).append(stop_code(f, n))
+    kfs = sorted(set(kf for kf, _ in runs)); notes = sorted(set(n for _, n in runs))
+    print('level code at which the DCW rise stops (level 99 = code 127; "-": still rising at the')
+    print('end of the hold, i.e. above %.0f; "/" separates re-recordings)' % (CODES_PER_S*7.8))
+    print('   kf ' + ''.join('%14d' % n for n in notes))
+    for kf in kfs:
         row = ''
         for n in notes:
-            ts, rising, h2 = st[(kf, n)]
-            row += '       -' if rising else ('    sine' if h2 < -40 else '%8.1f' % (CODES_PER_S*ts))
+            v = runs.get((kf, n))
+            row += '%14s' % ('' if v is None else '/'.join('-' if c is None else '%.1f' % c for c in v))
         print('   %d  ' % kf + row)
-    print('k = (1 - 0.9025*code/127) / f  [1e-4 s]')
-    for kf in (0, 5, 9):
+    print('(127 - code) / f  [codes/kHz]')
+    for kf in kfs:
         row = ''
         for n in notes:
-            ts, rising, h2 = st[(kf, n)]
-            f = 440*2**((n - 69)/12)
-            row += '       -' if rising or h2 < -40 else '%8.2f' % ((1 - 0.9025*CODES_PER_S*ts/127)/f*1e4)
+            v = [c for c in runs.get((kf, n), []) if c]
+            row += '%14s' % ('%.1f' % ((127 - np.mean(v))/(440*2**((n - 69)/12))*1e3) if v else '')
         print('   %d  ' % kf + row)

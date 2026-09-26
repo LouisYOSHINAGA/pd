@@ -8,14 +8,16 @@ the hold and the rise speed.
 import numpy as np, os, re, wave
 import pdosc
 
-D = os.path.join(os.path.dirname(__file__), '..', 'czenvrec', '20260927_2')
+REC = os.path.join(os.path.dirname(__file__), '..', 'czenvrec')
+D = os.path.join(REC, '20260927_2')
 
-def files():
-    out = []
-    for f in os.listdir(D):
+def files(sub='20260927_2'):
+    """(path, key follow, note) of the recordings in czenvrec/<sub>."""
+    d = os.path.join(REC, sub); out = []
+    for f in os.listdir(d):
         m = re.match(r'dcw_r1_24_l1_99_kf_(\d)_note_(\d+)\.wav$', f)
         if m:
-            out.append((f, int(m.group(1)), int(m.group(2))))
+            out.append((os.path.join(d, f), int(m.group(1)), int(m.group(2))))
     return sorted(out, key=lambda r: (r[1], r[2]))
 
 def load(f):
