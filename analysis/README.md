@@ -5,6 +5,7 @@
 - `czenvrec/presets/`: プリセット16音色（A4, note on 5 s / 周期 8 s）
 - `czenvrec/20260922/`: DCA の rate / level sweep（DCW, DCO は level 0。note on 10 s / 周期 13 s）
 - `czenvrec/20260925/`: 追加確認（Synth Bass の rate 再入力、初期化パッチの rate 24 attack と設定の入れ直し）→ `check_20260925.py`
+- `czenvrec/20260927/`: sustain 到達前の離鍵（到達前・sustain なしは最終 step へ直行）→ `check_20260927.py`
 - `czenvrec/20260926_2/`: rate 36 での Key Follow（attack/release とも同倍率）と Octave Range +1 の確認（Key Follow は鳴っている音程で決まる）→ `check_20260926_2.py`
 - `czenvrec/20260926/`: DCA Key Follow 0〜9 × 鍵 C1〜C8（24〜108）→ `keyfollow2.py`（attack/release の rate code、速度比、sustain）、`keyfollow_model.py`（速度比 F = (12+k)/12 の補間モデルと検証、k の表 `dca_keyfollow_k.csv` を生成）
   - 20260922 と 20260925 B/C の初期化パッチは表示と内部状態が食い違っており、DCA が 22 code 速く、音色も Resonance III 相当だった。

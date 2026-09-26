@@ -212,11 +212,16 @@ void EG::enter(int8 step) {
 }
 
 void EG::restart() {
+  if (released_) {
+    return;  // only the first note-off counts
+  }
   released_ = true;
-  if (sustainPoint_ < endPoint_) {
+  if (step_ == kEgStepSustain) {
     enter(sustainPoint_ + 1);  // release: continue after the sustain step
   } else {
-    enter(endPoint_);  // no sustain: jump straight to the end step
+    // Released before the sustain point was reached, or no sustain point:
+    // the CZ-101 jumps straight to the end step.
+    enter(endPoint_);
   }
 }
 
