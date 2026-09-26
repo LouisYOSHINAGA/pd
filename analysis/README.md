@@ -1,6 +1,7 @@
 # CZ-101 Envelope Analysis
 
 `czenvrec/` の実機録音から DCO/DCW/DCA EG の特性を推定し、`eg.cpp` の実装を検証するためのスクリプト群。
+録音データはcommitせず[Google Drive](https://drive.google.com/drive/folders/1nvWJIW0wf2pGReZSfiPwcmNJbYOr8532?usp=sharing)上にアップロードする。
 
 - `czenvrec/presets/`: プリセット16音色（A4, note on 5 s / 周期 8 s）
 - `czenvrec/20260922/`: DCA の rate / level sweep（DCW, DCO は level 0。note on 10 s / 周期 13 s）
