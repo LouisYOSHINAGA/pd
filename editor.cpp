@@ -469,8 +469,8 @@ void PDEditor::buildHeader(CFrame* frame) {
   addLabel(frame, CRect(126, 27, 470, 44), "PHASE DISTORTION SYNTHESIZER", skin().textDim, 12);
 
   addLabel(frame, CRect(490, 10, 610, 24), "PRESET", skin().textDim, 11, true);
-  addTextButton(frame, CRect(490, 27, 548, 51), kPresetSaveTag, "SAVE");
-  addTextButton(frame, CRect(556, 27, 614, 51), kPresetLoadTag, "LOAD");
+  addTextButton(frame, CRect(490, 27, 548, 51), kPresetLoadTag, "LOAD");
+  addTextButton(frame, CRect(556, 27, 614, 51), kPresetSaveTag, "SAVE");
 
   addKnob(frame, CRect(644, 8, 688, 52), kParamVolume, skin().accent, false, "Volume");
   addLabel(frame, CRect(618, 52, 714, 64), "VOLUME", skin().textDim, 10, false, kCenterText);
@@ -511,14 +511,14 @@ void PDEditor::buildGlobalRow(CFrame* frame) {
     x += 62;
   }
 
-  addLabel(frame, CRect(820, 76, 920, 90), "OCTAVE", skin().textDim, 11, true);
-  addSegmentButton(frame, CRect(820, 94, 1000, 126), kParamOctaveRange, {"-1", "0", "+1"});
+  addLabel(frame, CRect(690, 76, 790, 90), "OCTAVE", skin().textDim, 11, true);
+  addSegmentButton(frame, CRect(690, 94, 846, 126), kParamOctaveRange, {"-1", "0", "+1"});
   bindings_[kParamOctaveRange].control->setTooltipText(
     "Octave range: shifts both lines (key follow follows the shifted note)"
   );
 
-  addLabel(frame, CRect(700, 76, 760, 90), "SKIN", skin().textDim, 11, true);
-  COptionMenu* skinMenu = new COptionMenu(CRect(700, 94, 800, 118), this, kSkinMenuTag);
+  addLabel(frame, CRect(880, 76, 940, 90), "SKIN", skin().textDim, 11, true);
+  COptionMenu* skinMenu = new COptionMenu(CRect(880, 94, 980, 118), this, kSkinMenuTag);
   for (int32 i = 0; i < kNumSkins; i++) {
     skinMenu->addEntry(kSkins[i].name);
   }
@@ -615,7 +615,7 @@ void PDEditor::buildLinePanel(CFrame* frame, double x, int32 lineBase, const cha
 
     if (egIndex == static_cast<int32>(EgKind::kDca)) {
       ParamID keyFollowTag = lineIndex == 0 ? kParamLine1DcaKeyFollow : kParamLine2DcaKeyFollow;
-      addLabel(panel, CRect(410, top + 112, 448, top + 126), "KEY F", skin().textDim, 10);
+      addLabel(panel, CRect(410, top + 112, 448, top + 126), "KF", skin().textDim, 10);
       addMenu(panel, CRect(448, top + 109, 500, top + 129), keyFollowTag, keyFollowEntries);
       bindings_[keyFollowTag].control->setTooltipText(
         "DCA key follow: faster envelope on higher notes (0 = off)"
