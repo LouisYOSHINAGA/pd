@@ -43,6 +43,7 @@
 | `dcwdepth.py` | DCW の level code と位相歪みの深さの関係（20260927_2 で鍵ごとの出力特性と同時に fit。深さ = 0.97 × code/127、全鍵で一致・直線） |
 | `pitch.py`, `pitch2.py` | zero-cross による DCO pitch glide の測定 |
 | `attack.py` | preset の立ち上がりを 1 ms 精度で測定（上昇も下降と同じ速度則であることの確認） |
+| `compare_attack.py` | 16 音色の立ち上がりを実機と VST で比較（-40 dB から -20/-10/-6/-3/-1 dB までの時間） |
 | `gate.py` | 実機の発音長（attack 開始 → release 開始）と MIDI の gate の差（note off の反応遅れ、約 +12 ms）の測定 |
 | `fastrms.py` | 1 周期窓 RMS による高速な attack / release の測定（note off 後の rate 上限 code 104 の確認） |
 | `dcasweep.py`, `volcurve2.py` | sweep 録音の読み込みと、sustain 値・遅い attack からの音量カーブ復元（1/12 octave/code, 下端は -0.5 LSB 相当の落ち込み） |
