@@ -66,7 +66,7 @@ PD音源では、単一のcos波の位相の読み出しを歪ませることで
 | L1/L2 DCW Key Follow | {0..9} | 高い音ほどDCW levelを下げる度合い（0で無効） |
 | L1/L2 DCA Key Follow | {0..9} | 高い音ほどDCA envelopeを速くする度合い（0で無効） |
 
-- DCW EGのlevelが位相歪みの深さを決定する。0で純粋なcos波、99で各波形の特性が最も強く現れる。
+- DCW EGのlevelが位相歪みの深さを決定する。0で純粋なcos波、99で各波形の特性が最も強く現れる（深さはlevel codeに比例し、実機の測定値に合わせてcode 127で0.97）。
 - End Pointに指定したstepの到達levelは常に0となる
 - EGの時間特性（rateと所要時間、levelの刻み、DCAの音量カーブ）は実機CZ-101の録音から推定したモデルに基づく（詳細は `eg.cpp` と `analysis/`）。
 - DCA Key Followは全step（attack/decay/release）の速さに鍵盤位置と値で決まる倍率を掛ける（C2で等倍、実測値に基づく）。鍵盤位置はC2..C7に丸めて評価する。

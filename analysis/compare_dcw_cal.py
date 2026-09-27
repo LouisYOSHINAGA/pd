@@ -27,7 +27,7 @@ def calibration():
         t, est = track_signal(x[o:o + int(7.9*sr)], 440, 1, 0)
         est_all.append(np.interp(np.arange(0.2, 7.6, 0.05), t, est))
     true = CODES_PER_S*np.arange(0.2, 7.6, 0.05)
-    est = np.median(est_all, axis=0)/0.95*127
+    est = np.median(est_all, axis=0)*127
     return est, true
 
 CASES = [  # sub, preset no, wf1, wf2, smoothing (beating of 1+1'), shift (rec -> render), tmax
@@ -48,7 +48,7 @@ if __name__ == '__main__':
     P = {p['no']: p for p in load()}
     for sub, no, w1, w2, sm, sh, tmax in CASES:
         t, est, err, tot = track(sub, 440, w1, w2, tmax=min(8.0, tmax + sh + 0.2), smooth_s=sm)
-        cz = to_true(est/0.95*127)/127*0.95
+        cz = to_true(est*127)/127
         m = (t - sh > 0.05) & (t - sh < tmax) & (tot > tot.max() - 40)
         out = []
         for label, kf in (('DCW KF on', True), ('DCW KF off', False)):

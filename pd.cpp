@@ -23,7 +23,7 @@ double AbstractGenerator::generate(double phasetime) {
 }
 
 void SawToothGenerator::setDcw(double dcw) {
-  double corrDcw = kDcwCorrectCoef * dcw;
+  double corrDcw = kDcwMaxDepth * dcw;
   breakpoint_ = M_PI * (1 - corrDcw);
   slopeLeft_ = 1 / (1 - corrDcw);
   slopeRight_ = 1 / (1 + corrDcw);
@@ -38,7 +38,7 @@ double SawToothGenerator::getPhase(double phasetime) {
 }
 
 void SquareGenerator::setDcw(double dcw) {
-  double corrDcw = kDcwCorrectCoef * dcw;
+  double corrDcw = kDcwMaxDepth * dcw;
   breakpoint_ = M_PI * (1 - corrDcw);
   epsilon_ = kPhaseEpsilon * corrDcw;
   slopeLeft_ = (M_PI - epsilon_) / (M_PI * (1 - corrDcw));
@@ -58,7 +58,7 @@ double SquareGenerator::getPhase(double phasetime) {
 }
 
 void PulseGenerator::setDcw(double dcw) {
-  double corrDcw = kDcwCorrectCoef * dcw;
+  double corrDcw = kDcwMaxDepth * dcw;
   breakpoint_ = M_PI * corrDcw;
   epsilon_ = kPhaseEpsilon * corrDcw;
   slopeLeft_ = kPhaseEpsilon / M_PI;
@@ -78,7 +78,7 @@ double PulseGenerator::getPhase(double phasetime) {
 }
 
 void DoubleSineGenerator::setDcw(double dcw) {
-  double corrDcw = kDcwCorrectCoef * dcw;
+  double corrDcw = kDcwMaxDepth * dcw;
   breakpoint_ = M_PI * (1 - corrDcw);
   slopeLeft_ = 2 / (1 - corrDcw);
   slopeRight_ = 2 / (1 + corrDcw);
@@ -93,7 +93,7 @@ double DoubleSineGenerator::getPhase(double phasetime) {
 }
 
 void SawPulseGenerator::setDcw(double dcw) {
-  double corrDcw = kDcwCorrectCoef * dcw;
+  double corrDcw = kDcwMaxDepth * dcw;
   breakpoint_ = M_PI * (1 - corrDcw);
   epsilon_ = kPhaseEpsilon * corrDcw;
   slopeLeft_ = (M_PI - epsilon_) / (M_PI * (1 - corrDcw));

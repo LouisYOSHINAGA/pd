@@ -22,8 +22,9 @@
 //   DCA: code = l + 28 (l = 0 -> 0). The accumulator drives an exponential
 //        volume table of 1/12 octave (~0.5 dB) per code (see kVolume), so a
 //        99 -> 0 release covers 127 codes while 99 -> 75 covers only 24.
-//   DCW: code = 127 * l / 99, truncated (Casio's sysex table); depth is
-//        linear in the code.
+//   DCW: code = 127 * l / 99, truncated (Casio's sysex table); the EG outputs
+//        code / 127 and the phase distortion depth is linear in it (0.97 at
+//        code 127, see PD's generators).
 //   DCO: l < 64 -> l / 8 semitones, l >= 64 -> 2 * (l - 60) semitones; the
 //        pitch glides linearly in semitones.
 //
@@ -51,7 +52,6 @@ constexpr int kVolumeStepsPerOctave = 48;         // 1/12 octave per level code
 constexpr int kVolumeUnityIndex = 127 * 4;        // code 127 = full scale
 constexpr double kVolumeFullScale = 1024.0;       // chip amplitude at full scale
 constexpr int kVolumeSilentBelow = 24;            // code 6: output rounds to 0
-constexpr double kDcwMaxDepth = 0.95;             // DCW output at code 127
 constexpr int32 kMaxPanelValue = 99;
 constexpr int32 kRateCodeOffset = 2;              // DCA/DCW, A4, key follow 0 (presets and a panel-set patch)
 constexpr int32 kDcoRateCodeMax = 127;            // DCO rate code at panel rate 99
@@ -330,8 +330,8 @@ double EG::output() const {
   switch (egKind_) {
     case EgKind::kDco:  // pitch offset in semitones
       return level_;
-    case EgKind::kDcw:  // phase distortion depth 0..kDcwMaxDepth
-      return level_ / 127.0 * kDcwMaxDepth;
+    case EgKind::kDcw:  // DCW 0..1 (level code / 127)
+      return level_ / 127.0;
     case EgKind::kDca: {  // amplitude 0..1
       if (level_ <= 0.0) {
         return 0.0;
@@ -364,7 +364,7 @@ double dcwLimit(double freq) {
   }
   double code = kDcwLimitCode[i - 1] + (kDcwLimitCode[i] - kDcwLimitCode[i - 1]) *
       (freq - kDcwLimitFreq[i - 1]) / (kDcwLimitFreq[i] - kDcwLimitFreq[i - 1]);
-  return std::clamp(code, 0.0, 127.0) / 127.0 * kDcwMaxDepth;
+  return std::clamp(code, 0.0, 127.0) / 127.0;
 }
 
 }  // namespace Vst

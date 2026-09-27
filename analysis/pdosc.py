@@ -2,7 +2,7 @@
 import numpy as np
 PI = np.pi
 EPS = PI/64
-C = 0.95
+C = 0.97   # depth at DCW 1.0 (= level code 127), pd.h kDcwMaxDepth
 
 def phase(wf, t, dcw):
     c = C*dcw
@@ -31,7 +31,7 @@ def cycle(wf, t, dcw):
     """One oscillator cycle for waveforms 1..8 (6..8: resonance, as in pd.cpp)."""
     if wf <= 5:
         return -np.cos(phase(wf, t, dcw))
-    k = 1 + 14*dcw
+    k = 1 + 13.3*dcw   # pd.h kMaxFreqMult
     if wf == 6:
         env = 1 - t/(2*PI - EPS)
     elif wf == 7:

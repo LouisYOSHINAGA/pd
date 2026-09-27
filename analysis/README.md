@@ -40,6 +40,7 @@
 | `czeg.py`, `dcamodel.py`, `fitdca.py` | チップ EG モデル (35 kHz, step=(8+(n&7))<<(n>>3), n=round(1.25*rate)) で DCA 包絡を予測し録音に fit |
 | `volcurve.py` | 減衰中の dB を accumulator 位置に対して描画 (0.495 dB/level code の確認) |
 | `pdosc.py`, `harm.py`, `plateau.py`, `dcwtrack.py` | 倍音パワーを発振器モデルと照合して DCW 値を推定 (sustain 値・時間変化) |
+| `dcwdepth.py` | DCW の level code と位相歪みの深さの関係（20260927_2 で鍵ごとの出力特性と同時に fit。深さ = 0.97 × code/127、全鍵で一致・直線） |
 | `pitch.py`, `pitch2.py` | zero-cross による DCO pitch glide の測定 |
 | `attack.py` | preset の立ち上がりを 1 ms 精度で測定（上昇も下降と同じ速度則であることの確認） |
 | `gate.py` | 実機の発音長（attack 開始 → release 開始）と MIDI の gate の差（note off の反応遅れ、約 +12 ms）の測定 |
@@ -50,7 +51,7 @@
 1. `harness\build.bat` で `harness/render.exe` をビルド（プラグインの `Voice`/`PD`/`EG` をそのまま使うオフラインレンダラ）。
 2. `python render_all.py new` : 16 音色を CSV のパラメータでレンダリングし、DCA 包絡の誤差を表示 (`plots/vst_vs_cz_dca_new.png`)。
 3. `python compare_dcw.py`, `python compare_dco.py` : DCW / DCO の時間変化を比較。
-   A4 では実機の DCW が倍音照合で約 7% 高く読まれるため、saw のプリセットは `python compare_dcw_cal.py`（20260927_2 で偏りを補正し、DCW Key Follow の有無で比較）も使う。
+   `python compare_dcw_cal.py`: 20260927_2 で推定の偏りを確認したうえで、DCW Key Follow の有無で比較（深さを 0.97 に直してからは偏りはほぼ 0）。
 4. `python compare_sweep.py` : sweep 録音と比較（level 別 sustain 値、rate 別 attack 時間）。
    sweep 用パッチは同じ rate 値でプリセットより 22 code（約 6.7 倍）速いため、同じ rate code になる VST の rate に置き換えて比較する。
 

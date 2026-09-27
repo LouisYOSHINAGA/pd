@@ -12,7 +12,9 @@ namespace Vst {
 
 class AbstractGenerator {
  protected:
-  static constexpr double kDcwCorrectCoef = 0.95;
+  // Phase distortion depth at full DCW (DCW 1.0 = level code 127), measured on
+  // a CZ-101 saw (analysis/dcwdepth.py: linear in the code, 0.970 on every key).
+  static constexpr double kDcwMaxDepth = 0.97;
   double breakpoint_;
   double slopeLeft_;
   double slopeRight_;
@@ -66,7 +68,9 @@ class SawPulseGenerator : public AbstractGenerator {
 
 class AbstractResonanceGenerator : public AbstractGenerator {
  protected:
-  static constexpr double kMaxFreqMult = 14.0;
+  // Resonance frequency multiplier added at full DCW (not measured yet; keeps
+  // the previous range, x14.3 at DCW 1.0).
+  static constexpr double kMaxFreqMult = 13.3;
   double highFreqPhaseCoef_;
   void setDcw(double dcw) override;
   double getPhase(double phasetime) override;

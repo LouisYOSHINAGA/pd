@@ -54,6 +54,6 @@ if __name__ == '__main__':
     for kf in (0, 9):
         f = os.path.join(D, 'dcw_r1_99_l1_99_r2_24_l2_00_r3_99_l3_00_kf_%d_note_96.wav' % kf)
         t, est, _ = dcw_track(f, 96)
-        code = est/0.95*127
+        code = est*127
         print('   KF %d measured:     %s' % (kf, ' '.join('%5.1f' % np.median(code[int(s/0.02) - 2:int(s/0.02) + 3])
                                                      for s in (0.5, 2, 3, 3.5, 4, 5, 6, 7))))

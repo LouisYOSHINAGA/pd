@@ -37,7 +37,7 @@ if __name__ == '__main__':
     for sub, f0, w1, w2, L, note, dco, kf in CASES:
         t, est, err, _ = track(sub, f0, w1, w2, tmax=3.0)
         m = (t > 0.5) & (t < 2.5)
-        cz = np.median(est[m])/0.95*127
+        cz = np.median(est[m])*127
         lv = max(0.0, L - subtract(kf, note))
         print('%-11s %5d %4d %+4d %3d | %6.1f | %11.1f %11.1f'
               % (sub, L, note, dco, kf, cz, min(lv, cap(freq(note))), min(lv, cap(freq(note + dco)))))
