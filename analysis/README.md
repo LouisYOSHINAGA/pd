@@ -48,6 +48,7 @@
 1. `harness\build.bat` で `harness/render.exe` をビルド（プラグインの `Voice`/`PD`/`EG` をそのまま使うオフラインレンダラ）。
 2. `python render_all.py new` : 16 音色を CSV のパラメータでレンダリングし、DCA 包絡の誤差を表示 (`plots/vst_vs_cz_dca_new.png`)。
 3. `python compare_dcw.py`, `python compare_dco.py` : DCW / DCO の時間変化を比較。
+   A4 では実機の DCW が倍音照合で約 7% 高く読まれるため、saw のプリセットは `python compare_dcw_cal.py`（20260927_2 で偏りを補正し、DCW Key Follow の有無で比較）も使う。
 4. `python compare_sweep.py` : sweep 録音と比較（level 別 sustain 値、rate 別 attack 時間）。
    sweep 用パッチは同じ rate 値でプリセットより 22 code（約 6.7 倍）速いため、同じ rate code になる VST の rate に置き換えて比較する。
 
