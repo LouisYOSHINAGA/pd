@@ -16,6 +16,7 @@
 - `czenvrec/20260927_3/`: DCW level 50（鍵 96, KF 0〜9 と 鍵 72, KF 9）と level 75（鍵 84, KF 1〜9）→ `check_20260927_3.py`（KF 0 は頭打ちのみ、KF 1〜9 は KF に応じた量が level から引かれる）
 - `czenvrec/20260927_4/`: DCO で音程を +12 半音上げた場合など → `check_20260927_4.py`（頭打ちはその時点の発振音程で、KF の引き算は鍵で決まる。DCO rate 20 の glide は 2.75 半音/s で eg.cpp のモデル 3.56 より遅い。頭打ちは出力にかかり、内部の値が上限を下回るまで張り付く）
   - `dcwkf_model.py`: 上記から KF の引き算表 `dcw_keyfollow_s.csv`（KF × 鍵 36〜96、`eg.cpp` の `kDcwKeyFollowS`）と上限の点（`kDcwLimitCode`）を作る。C6 未満の鍵は補間による暫定値。
+- `czenvrec/20260927_5/`: DCO rate 10〜60（level 66 = +12 半音）と level 32（+4 半音）、鍵 72、DCW 0 → `check_20260927_5.py`（glide は半音に対して直線、code = 127r/99・1 半音 14 × 2^16 単位で rate 10〜50 が 0.5% 以内、rate 60 は +5%）
 
 ## 参考資料
 - Michael Rickard, "Casio CZ Envelopes"（非公式、[Web Archive](https://web.archive.org/web/20201111190255/https://www.kasploosh.com/cz/13466-envelopes/)）の PDF "Casio CZ MIDI Specification - Envelope Data"：パネル値 α から sysex 値 β への変換（整数演算）。
@@ -25,7 +26,7 @@
   | DCW | β = 119α/99 + 8 | β = 127α/99 |
   | DCA | β = 119α/99 | α = 0: 0、それ以外 β = α + 28 |
   - 録音から求めたモデルとの対応：DCA level は一致。DCA rate はチップの code = β + 2。DCW rate は DCA + 8 だが、+8 code はちょうど 2 倍速なので、DCW の内部単位が DCA の半分なら録音と一致する。DCO level の半音換算（β < 64: β/8、β ≥ 68: 2(β - 64)）とも矛盾しない。DCW level は切り捨て（`eg.cpp` もこれに合わせた）。
-  - DCO rate は 127/99 倍で、DCA/DCW の 119/99 倍とは rate の間隔が異なる。`eg.cpp` は DCA と同じ式のままで、rate 20 の実測（遅い）と Violin の rate 58（速い）の両方とずれる方向が一致するため、DCO rate の録音で確認予定。
+  - DCO rate は 127/99 倍で、DCA/DCW の 119/99 倍とは rate の間隔が異なる。20260927_5 の録音で、チップの code = β（オフセットなし）、1 半音 = 14 × 2^16 単位と確認した（`eg.cpp` も変更）。
 
 必要なもの: Python 3 + numpy / scipy / matplotlib、録音 (`czenvrec/*.wav`, `CZ101PresetParam .csv`)。
 出力 (`plots/`, `render/`) は git 管理外。

@@ -6,15 +6,17 @@
 #include "const.h"
 
 // CZ-101 envelope model, derived from recordings of the 16 factory presets
-// and of DCA rate/level sweeps.
+// and of DCA/DCW/DCO rate and level sweeps.
 //
 // Chip side: the envelope accumulator is updated once per chip sample
 // (8.96 MHz / 256 = 35 kHz) by a step taken from a 3-bit mantissa / 4-bit
 // exponent code, step = (8 + (n & 7)) << (n >> 3), and stops at the target.
-// Targets are "level code << 18" for DCA/DCW and "semitones * 12 << 16" for
-// DCO. The CPU maps the panel rate r (0..99) to n = 119 * r / 99 + 2; after
-// note-off n is limited to 104 (step 65536), so even a rate-99 release takes
-// ~14 ms from full level instead of ~3 ms.
+// Targets are "level code << 18" for DCA/DCW and "semitones * 14 << 16" for
+// DCO. The CPU maps the panel rate r (0..99) to n = 119 * r / 99 + 2 for
+// DCA/DCW and to n = 127 * r / 99 for DCO (the sysex rate values of Casio's
+// tables; DCO glides at rates 10..50 agree within 0.5%). After note-off n is
+// limited to 104 (step 65536), so even a rate-99 DCA release takes ~14 ms
+// from full level instead of ~3 ms.
 //
 // Level encodings (panel level l = 0..99):
 //   DCA: code = l + 28 (l = 0 -> 0). The accumulator drives an exponential
@@ -43,7 +45,7 @@ namespace {
 
 constexpr double kChipTickRate = 8.96e6 / 256.0;
 constexpr double kDcaDcwUnitScale = 1 << 18;     // chip units per level code
-constexpr double kDcoUnitScale = 12.0 * (1 << 16);  // chip units per semitone
+constexpr double kDcoUnitScale = 14.0 * (1 << 16);  // chip units per semitone
 constexpr int kVolumeTableSize = 512;             // 9-bit index = code * 4
 constexpr int kVolumeStepsPerOctave = 48;         // 1/12 octave per level code
 constexpr int kVolumeUnityIndex = 127 * 4;        // code 127 = full scale
@@ -51,7 +53,8 @@ constexpr double kVolumeFullScale = 1024.0;       // chip amplitude at full scal
 constexpr int kVolumeSilentBelow = 24;            // code 6: output rounds to 0
 constexpr double kDcwMaxDepth = 0.95;             // DCW output at code 127
 constexpr int32 kMaxPanelValue = 99;
-constexpr int32 kRateCodeOffset = 2;              // A4, key follow 0 (presets and a panel-set patch)
+constexpr int32 kRateCodeOffset = 2;              // DCA/DCW, A4, key follow 0 (presets and a panel-set patch)
+constexpr int32 kDcoRateCodeMax = 127;            // DCO rate code at panel rate 99
 constexpr int32 kReleaseRateCodeMax = 104;        // fastest rate after note-off
 constexpr int32 kKeyFollowLowestNote = 36;        // C2: the CZ-101 folds MIDI notes into C2..C7
 constexpr int32 kKeyFollowHighestNote = 96;       // C7
@@ -179,8 +182,11 @@ int32 toPanelValue(ParamValue normalized) {
   return std::clamp(value, 0, kMaxPanelValue);
 }
 
-// Panel rate (0..99) -> chip rate code (2..121).
-int32 rateCode(int32 rate) {
+// Panel rate (0..99) -> chip rate code (DCA/DCW 2..121, DCO 0..127).
+int32 rateCode(EgKind egKind, int32 rate) {
+  if (egKind == EgKind::kDco) {
+    return kDcoRateCodeMax * rate / kMaxPanelValue;
+  }
   return 119 * rate / kMaxPanelValue + kRateCodeOffset;
 }
 
@@ -252,7 +258,7 @@ double EG::levelToTarget(int32 level) const {
 }
 
 double EG::rateToDLevel(int32 rate) const {
-  double step = chipStep(rateCode(rate)) * speedFactor_;
+  double step = chipStep(rateCode(egKind_, rate)) * speedFactor_;
   if (released_) {
     step = std::min(step, static_cast<double>(chipStep(kReleaseRateCodeMax)));
   }
