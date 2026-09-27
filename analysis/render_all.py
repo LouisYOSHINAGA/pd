@@ -33,7 +33,7 @@ def line_params(line):
         v[base+16] = (end-2)/6.0
     return v
 
-def render(p, gate=5.0, total=8.0, tag='new', key_follow=True):
+def render(p, gate=5.0, total=8.0, tag='new', key_follow=True, tune=0):
     st = detune_semitones(p)
     ratio = 2**(st/12.0)
     octave = p['octave_range'] or 0
@@ -47,7 +47,7 @@ def render(p, gate=5.0, total=8.0, tag='new', key_follow=True):
         if tag != 'old':
             kfs = [(line['dca']['kf'] or 0) if key_follow else 0 for line in p['lines']]
             wkfs = [(line['dcw']['kf'] or 0) if key_follow else 0 for line in p['lines']]
-            f.write('%d %d %d %d %d\n' % (octave, kfs[0], kfs[1], wkfs[0], wkfs[1]))
+            f.write('%d %d %d %d %d %d\n' % (octave, kfs[0], kfs[1], wkfs[0], wkfs[1], tune))
     raw = fn.replace('.txt', '.raw')
     subprocess.run([EXE, fn, raw], check=True)
     y = np.fromfile(raw, dtype=np.float32).astype(np.float64)

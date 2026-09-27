@@ -3,7 +3,7 @@
 // params.txt: "<lineSelect> <detuneRatio> <note> <gateSeconds> <totalSeconds>"
 //             followed by 2 lines of kNumLineParams normalized values and
 //             optionally "<octave> <line-1 DCA key follow> <line-2 DCA key follow>"
-//             and then "<line-1 DCW key follow> <line-2 DCW key follow>".
+//             and then "<line-1 DCW key follow> <line-2 DCW key follow>" and "<master tune cents>".
 #include <cstdio>
 #include <vector>
 #include "voice.h"
@@ -34,6 +34,10 @@ int main(int argc, char** argv) {
     if (std::fscanf(f, "%d %d", &kf1, &kf2) == 2) {
       voice.setDcwKeyFollow(0, static_cast<Steinberg::int8>(kf1));
       voice.setDcwKeyFollow(1, static_cast<Steinberg::int8>(kf2));
+      int tune;
+      if (std::fscanf(f, "%d", &tune) == 1) {
+        voice.setMasterTune(tune);
+      }
     }
   }
   std::fclose(f);
