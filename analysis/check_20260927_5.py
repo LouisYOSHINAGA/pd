@@ -11,7 +11,7 @@ from dcwkf import load, REC
 from pitch import zc_freq
 
 D = os.path.join(REC, '20260927_5')
-BASE = 523.25*1.0032            # key 72; the CZ-101 is tuned ~5 cents sharp
+BASE = 523.25*2**(9.6/1200)      # key 72; this CZ-101 plays 9.6 cents sharp on every key
 TICK = 8.96e6/256
 
 def step(n):
