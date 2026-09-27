@@ -15,7 +15,8 @@
   - Key Follow で DCW の速度は変わらない。高音での DCW の制限は 2 種類: KF によらない頭打ち（127 - code ≈ 0.024*f[Hz]、Violin からは DCO envelope を含む発振周波数で決まるらしい）と、KF 1〜9 の level からの引き算（発音の鍵で決まる）。level 99 では KF 1〜7 の引き算は頭打ちに隠れて見えない。
 - `czenvrec/20260927_3/`: DCW level 50（鍵 96, KF 0〜9 と 鍵 72, KF 9）と level 75（鍵 84, KF 1〜9）→ `check_20260927_3.py`（KF 0 は頭打ちのみ、KF 1〜9 は KF に応じた量が level から引かれる）
 - `czenvrec/20260927_4/`: DCO で音程を +12 半音上げた場合など → `check_20260927_4.py`（頭打ちはその時点の発振音程で、KF の引き算は鍵で決まる。DCO rate 20 の glide は 2.75 半音/s で eg.cpp のモデル 3.56 より遅い。頭打ちは出力にかかり、内部の値が上限を下回るまで張り付く）
-  - `dcwkf_model.py`: 上記から KF の引き算表 `dcw_keyfollow_s.csv`（KF × 鍵 36〜96、`eg.cpp` の `kDcwKeyFollowS`）と上限の点（`kDcwLimitCode`）を作る。C6 未満の鍵は補間による暫定値。
+  - `dcwkf_model.py`: 全測定点から KF の引き算表 `dcw_keyfollow_s.csv`（KF × 鍵 36〜96、`eg.cpp` の `kDcwKeyFollowS`）と上限の点（`kDcwLimitCode`）を作る。引き算は s(KF) × g(鍵) の形で全 60 点に 1.5 code 以内で合う。
+- `czenvrec/20260928/`, `20260928_2/`: KF 3, 5, 7, 9 × 鍵 60〜90（DCW level 50）、KF 9 × 鍵 90, 93（level 99）、KF 0 × 鍵 60〜93（rate 30, level 99）→ `check_20260928.py`（KF 3 の "note_69" は実際には鍵 66）。上限は C4 から既にかかる（C4 で 123.9 code）。
 - `czenvrec/20260927_5/`: DCO rate 10〜60（level 66 = +12 半音）と level 32（+4 半音）、鍵 72、DCW 0 → `check_20260927_5.py`（glide は半音に対して直線、code = 127r/99・1 半音 14 × 2^16 単位で rate 10〜50 が 0.5% 以内、rate 60 は +5%）
 
 ## 参考資料

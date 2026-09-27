@@ -69,7 +69,7 @@ PD音源では、単一のcos波の位相の読み出しを歪ませることで
 - End Pointに指定したstepの到達levelは常に0となる
 - EGの時間特性（rateと所要時間、levelの刻み、DCAの音量カーブ）は実機CZ-101の録音から推定したモデルに基づく（詳細は `eg.cpp` と `analysis/`）。
 - DCA Key Followは全step（attack/decay/release）の速さに鍵盤位置と値で決まる倍率を掛ける（C2で等倍、実測値に基づく）。鍵盤位置はC2..C7に丸めて評価する。
-- DCW Key FollowはDCW EGの各stepの到達levelから、鍵盤位置と値で決まる量を引く（速さは変えない）。これとは別に、Key Followの値によらず高い音程ではDCWの上限が下がる（A4以下では制限なし、C7では最大の約6割）。上限はDCO envelopeを含むその時点の音程で決まる。いずれも実測に基づく暫定値。
+- DCW Key FollowはDCW EGの各stepの到達levelから、鍵盤位置と値で決まる量を引く（速さは変えない）。これとは別に、Key Followの値によらず高い音程ほどDCWの上限が下がる（C4で最大の約98%、A4で約93%、C7で約6割）。上限はDCO envelopeを含むその時点の音程で決まる。いずれもC4..C7の実測値に基づく（C4未満は外挿）。
 
 
 ## MIDI Implementation
