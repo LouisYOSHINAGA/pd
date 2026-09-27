@@ -17,7 +17,7 @@ S99.update({(kf, 84): 102.3 for kf in range(8)})
 S99.update({(7, 96): 74.5, (8, 96): 53.3, (8, 84): 94.9, (9, 96): 0.0, (9, 84): 68.8, (9, 72): 100.8})
 
 def level_code(level):
-    return (127*level + 49)//99
+    return 127*level//99
 
 def stop(f, f99, note):
     t, b = spectra(f, note)

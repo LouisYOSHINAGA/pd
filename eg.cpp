@@ -20,7 +20,8 @@
 //   DCA: code = l + 28 (l = 0 -> 0). The accumulator drives an exponential
 //        volume table of 1/12 octave (~0.5 dB) per code (see kVolume), so a
 //        99 -> 0 release covers 127 codes while 99 -> 75 covers only 24.
-//   DCW: code = round(127 * l / 99); depth is linear in the code.
+//   DCW: code = 127 * l / 99, truncated (Casio's sysex table); depth is
+//        linear in the code.
 //   DCO: l < 64 -> l / 8 semitones, l >= 64 -> 2 * (l - 60) semitones; the
 //        pitch glides linearly in semitones.
 //
@@ -242,7 +243,7 @@ double EG::levelToTarget(int32 level) const {
     case EgKind::kDco:
       return (level < 64) ? level / 8.0 : 2.0 * (level - 60);
     case EgKind::kDcw:
-      return std::max((127 * level + kMaxPanelValue / 2) / kMaxPanelValue - levelOffset_, 0);
+      return std::max(127 * level / kMaxPanelValue - levelOffset_, 0);
     case EgKind::kDca:
       return (level == 0) ? 0.0 : level + 28.0;
     default:  // never reached
