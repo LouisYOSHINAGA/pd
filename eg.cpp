@@ -28,6 +28,12 @@
 // (12 + k) / 12, where k is an integer depending on the key follow value and
 // the note (see kDcaKeyFollowK); the after-note-off limit applies to the
 // multiplied speed.
+//
+// DCW key follow leaves the speed alone and subtracts a code depending on the
+// key follow value and the note from every DCW target (see kDcwKeyFollowS;
+// floor 0). Separately, the chip caps the DCW output on high pitches whatever
+// the key follow is (see dcwLimit): the cap follows the oscillator frequency,
+// DCO envelope included, while the key follow uses the note only.
 
 namespace Steinberg {
 namespace Vst {
@@ -96,6 +102,60 @@ constexpr int16 kDcaKeyFollowK[kNumKeyFollowOptions][kKeyFollowNumNotes] = {
     69,  82,  98, 117, 140, 167, 199, 238, 285, 340, 438, 564, 727},  // key follow 9
 };
 
+// Level codes subtracted from the DCW targets, per key follow value and note
+// C2..C7 (analysis/dcw_keyfollow_s.csv). Measured on a CZ-101 at C6 and C7 for
+// every key follow value and at A4, C5, A5 for 8 and 9; the note dependence
+// in between is interpolated linearly in frequency (provisional below C6).
+constexpr int16 kDcwKeyFollowS[kNumKeyFollowOptions][kKeyFollowNumNotes] = {
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},  // key follow 0
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,   0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,
+     2,   2,   2,   2,   2,   2,   3,   3,   3,   3,   3,   4,   4,   4,   4,   5,
+     5,   5,   6,   6,   7,   7,   8,   8,   9,   9,  10,  11,  12},  // key follow 1
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   2,   2,   2,   2,   2,
+     3,   3,   3,   3,   4,   4,   4,   5,   5,   5,   6,   6,   6,   7,   7,   8,
+     8,   9,  10,  10,  11,  12,  13,  14,  15,  16,  17,  18,  19},  // key follow 2
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     0,   1,   1,   1,   1,   1,   1,   1,   2,   2,   2,   2,   2,   3,   3,   3,
+     3,   4,   4,   4,   5,   5,   6,   6,   6,   7,   7,   8,   8,   9,   9,  10,
+    11,  12,  12,  13,  14,  15,  17,  18,  19,  20,  22,  23,  25},  // key follow 3
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     1,   1,   1,   1,   1,   1,   2,   2,   2,   2,   3,   3,   3,   4,   4,   4,
+     5,   5,   5,   6,   7,   7,   8,   8,   9,   9,  10,  11,  11,  12,  13,  14,
+    15,  16,  17,  18,  20,  21,  23,  24,  26,  28,  30,  32,  34},  // key follow 4
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+     1,   1,   1,   1,   1,   2,   2,   2,   2,   3,   3,   3,   4,   4,   5,   5,
+     5,   6,   6,   7,   8,   8,   9,  10,  10,  11,  12,  13,  13,  14,  15,  16,
+    17,  19,  20,  22,  23,  25,  27,  29,  31,  33,  35,  38,  40},  // key follow 5
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,
+     1,   1,   1,   1,   2,   2,   2,   3,   3,   3,   4,   4,   5,   5,   5,   6,
+     7,   7,   8,   9,   9,  10,  11,  12,  12,  13,  14,  15,  16,  17,  18,  20,
+    21,  23,  24,  26,  28,  30,  32,  35,  37,  40,  42,  45,  48},  // key follow 6
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,
+     1,   1,   1,   2,   2,   2,   3,   3,   4,   4,   4,   5,   5,   6,   6,   7,
+     8,   8,   9,  10,  11,  12,  13,  14,  14,  15,  17,  18,  19,  20,  22,  23,
+    24,  26,  28,  31,  33,  35,  38,  41,  43,  47,  50,  53,  57},  // key follow 7
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,   1,
+     1,   2,   2,   2,   3,   3,   4,   4,   5,   5,   6,   6,   7,   8,   9,   9,
+    10,  11,  12,  13,  15,  16,  17,  18,  19,  21,  22,  24,  25,  27,  29,  30,
+    32,  35,  38,  41,  44,  47,  50,  54,  58,  62,  66,  71,  75},  // key follow 8
+  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,   1,   2,
+     2,   3,   3,   4,   5,   6,   7,   7,   8,   9,  10,  12,  13,  14,  15,  17,
+    18,  20,  22,  24,  26,  28,  30,  32,  35,  37,  40,  42,  45,  48,  52,  55,
+    59,  63,  68,  73,  79,  84,  91,  97, 104, 111, 119, 127, 127},  // key follow 9
+};
+
+// DCW cap: level code per oscillator frequency (Hz), measured with key follow
+// 0 at A5, C6 and C7 (and C6 raised to C7 by the DCO envelope); no cap was
+// seen at A4 and below. Linear in between and extrapolated above C7.
+constexpr double kDcwLimitFreq[] = {440.0, 880.0, 1046.5, 2093.0};
+constexpr double kDcwLimitCode[] = {127.0, 106.2, 102.3, 75.1};
+constexpr int kNumDcwLimitPoints = sizeof(kDcwLimitFreq) / sizeof(kDcwLimitFreq[0]);
+
 double kVolume[kVolumeTableSize];
 
 // The chip amplitude is an integer, 1024 * 2^((code - 127) / 12), truncated
@@ -127,9 +187,12 @@ int32 chipStep(int32 code) {
   return (8 + (code & 7)) << (code >> 3);
 }
 
+int32 keyFollowIndex(int32 note) {
+  return std::clamp(note, kKeyFollowLowestNote, kKeyFollowHighestNote) - kKeyFollowLowestNote;
+}
+
 double dcaKeyFollowFactor(int8 keyFollow, int32 note) {
-  int32 index = std::clamp(note, kKeyFollowLowestNote, kKeyFollowHighestNote) - kKeyFollowLowestNote;
-  return (12.0 + kDcaKeyFollowK[keyFollow][index]) / 12.0;
+  return (12.0 + kDcaKeyFollowK[keyFollow][keyFollowIndex(note)]) / 12.0;
 }
 
 }  // namespace
@@ -144,6 +207,7 @@ EG::EG()
       released_(false),
       keyFollow_(0),
       speedFactor_(1.0),
+      levelOffset_(0),
       level_(0.0),
       dLevel_(0.0),
       target_(0.0) {
@@ -178,7 +242,7 @@ double EG::levelToTarget(int32 level) const {
     case EgKind::kDco:
       return (level < 64) ? level / 8.0 : 2.0 * (level - 60);
     case EgKind::kDcw:
-      return (127 * level + kMaxPanelValue / 2) / kMaxPanelValue;
+      return std::max((127 * level + kMaxPanelValue / 2) / kMaxPanelValue - levelOffset_, 0);
     case EgKind::kDca:
       return (level == 0) ? 0.0 : level + 28.0;
     default:  // never reached
@@ -197,8 +261,8 @@ double EG::rateToDLevel(int32 rate) const {
 
 void EG::setup(EgKind egKind, int32 note) {
   egKind_ = egKind;
-  // key follow is only modeled for the DCA so far
   speedFactor_ = (egKind == EgKind::kDca) ? dcaKeyFollowFactor(keyFollow_, note) : 1.0;
+  levelOffset_ = (egKind == EgKind::kDcw) ? kDcwKeyFollowS[keyFollow_][keyFollowIndex(note)] : 0;
   released_ = false;
   level_ = 0.0;
   enter(0);
@@ -282,6 +346,16 @@ double EG::generate(bool& isEgEnd) {
   update();
   isEgEnd = step_ == kEgStepHalt;
   return value;
+}
+
+double dcwLimit(double freq) {
+  int i = 1;
+  while (i < kNumDcwLimitPoints - 1 && freq > kDcwLimitFreq[i]) {
+    i++;
+  }
+  double code = kDcwLimitCode[i - 1] + (kDcwLimitCode[i] - kDcwLimitCode[i - 1]) *
+      (freq - kDcwLimitFreq[i - 1]) / (kDcwLimitFreq[i] - kDcwLimitFreq[i - 1]);
+  return std::clamp(code, 0.0, 127.0) / 127.0 * kDcwMaxDepth;
 }
 
 }  // namespace Vst

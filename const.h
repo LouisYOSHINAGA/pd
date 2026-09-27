@@ -15,8 +15,9 @@ constexpr double kEpsilon = 0.00001;
 
 // Version tag written at the head of the processor state stream.
 // v2 appended kParamCcEditLine, v3 the mono/poly triggers, v4 the octave
-// range and the DCA key follow; older streams are still readable.
-constexpr int kStateVersion = 4;
+// range and the DCA key follow, v5 the DCW key follow; older streams are
+// still readable.
+constexpr int kStateVersion = 5;
 
 // Oscilloscope: the processor streams frames of recent output samples to the
 // controller as messages; the editor's scope view renders the latest frame.
@@ -141,6 +142,10 @@ enum ParamId {
   kParamLine1DcaKeyFollow,
   kParamLine2DcaKeyFollow,
 
+  // Appended in state v5.
+  kParamLine1DcwKeyFollow,
+  kParamLine2DcwKeyFollow,
+
   kNumParams
 };
 
@@ -151,6 +156,7 @@ inline int32_t numParamsOfStateVersion(int32_t version) {
     case 1: return kParamCcEditLine;
     case 2: return kParamMonoTrigger;
     case 3: return kParamOctaveRange;
+    case 4: return kParamLine1DcwKeyFollow;
     case kStateVersion: return kNumParams;
     default: return 0;
   }

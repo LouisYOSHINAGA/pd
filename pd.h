@@ -118,6 +118,7 @@ class PD {
   virtual void setEgSustainPoint(EgKind kind, int8 point);
   virtual void setEgEndPoint(EgKind kind, int8 point);
   virtual void setDcaKeyFollow(int8 value);
+  virtual void setDcwKeyFollow(int8 value);
   virtual void restartEg();
   virtual void haltEg();
 };

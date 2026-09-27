@@ -62,12 +62,14 @@ PD音源では、単一のcos波の位相の読み出しを歪ませることで
 | L1/L2 {DCO, DCW, DCA} EG Lvl 1–7 | {0..99} | 各stepの到達level |
 | L1/L2 {DCO, DCW, DCA} EG Sustain Point | {1..7, Off} | envelopeのsustain step（optional） |
 | L1/L2 {DCO, DCW, DCA} EG End Point | {2..8} | envelopeの最終step |
+| L1/L2 DCW Key Follow | {0..9} | 高い音ほどDCW levelを下げる度合い（0で無効） |
 | L1/L2 DCA Key Follow | {0..9} | 高い音ほどDCA envelopeを速くする度合い（0で無効） |
 
 - DCW EGのlevelが位相歪みの深さを決定する。0で純粋なcos波、99で各波形の特性が最も強く現れる。
 - End Pointに指定したstepの到達levelは常に0となる
 - EGの時間特性（rateと所要時間、levelの刻み、DCAの音量カーブ）は実機CZ-101の録音から推定したモデルに基づく（詳細は `eg.cpp` と `analysis/`）。
-- DCA Key Followは全step（attack/decay/release）の速さに鍵盤位置と値で決まる倍率を掛ける（C2で等倍、実測値に基づく）。鍵盤位置はC2..C7に丸めて評価する。DCW Key Followは未実装。
+- DCA Key Followは全step（attack/decay/release）の速さに鍵盤位置と値で決まる倍率を掛ける（C2で等倍、実測値に基づく）。鍵盤位置はC2..C7に丸めて評価する。
+- DCW Key FollowはDCW EGの各stepの到達levelから、鍵盤位置と値で決まる量を引く（速さは変えない）。これとは別に、Key Followの値によらず高い音程ではDCWの上限が下がる（A4以下では制限なし、C7では最大の約6割）。上限はDCO envelopeを含むその時点の音程で決まる。いずれも実測に基づく暫定値。
 
 
 ## MIDI Implementation
@@ -91,6 +93,7 @@ CCがどちらのLINEを編集するかは`CC Edit Line`パラメータで選択
 | Detune {Octave,Note,Fine} | CC {85,86,87} | [param] Detune {Octave,Note,Fine} |
 | Wavefome {1,2} | CC {89,90} | [param] L1/L2 Waveform {1st,2nd} |
 | Octave Range | CC 31 | 0..42: -1, 43..84: 0, 85..127: +1 |
+| DCW Key Follow | CC 63 | [param] L1/L2 DCW Key Follow（対象LINEは`CC Edit Line`で選択） |
 | DCA Key Follow | CC 119 | [param] L1/L2 DCA Key Follow（対象LINEは`CC Edit Line`で選択） |
 
 | Target EG | Rate 1..8 | Lvl 1..7 | Sustain Point | End Point |

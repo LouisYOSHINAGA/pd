@@ -41,7 +41,8 @@ class EG {
   int8 step_;          // running step index, or kEgStepHalt / kEgStepSustain
   bool released_;      // true after note-off
   int8 keyFollow_;     // key follow value 0..9
-  double speedFactor_; // key follow speed factor of the current note
+  double speedFactor_; // DCA key follow speed factor of the current note
+  int32 levelOffset_;  // DCW key follow: level codes subtracted from the targets
   double level_;       // accumulator, in the output unit of the EG kind
   double dLevel_;      // accumulator change per internal tick (signed)
   double target_;
@@ -61,13 +62,18 @@ class EG {
   virtual void setEndPoint(int8 point);
   virtual void setKeyFollow(int8 value);
   // Starts the envelope for a note-on; `note` is the MIDI note after the
-  // octave range shift (it selects the key follow speed).
+  // octave range shift (it selects the key follow amount).
   virtual void setup(EgKind egKind, int32 note);
   virtual void restart();
   virtual void halt();
   virtual double generate();
   virtual double generate(bool& isEgEnd);
 };
+
+// Highest DCW output (in the unit of the DCW EG output) the CZ-101 allows at
+// the oscillator frequency `freq` in Hz; it falls on high pitches regardless
+// of the key follow and follows pitch changes such as the DCO envelope.
+double dcwLimit(double freq);
 
 }  // namespace Vst
 }  // namespace Steinberg

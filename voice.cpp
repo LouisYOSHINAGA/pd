@@ -129,6 +129,15 @@ void Voice::setDcaKeyFollow(int32 line, int8 value) {
   }
 }
 
+void Voice::setDcwKeyFollow(int32 line, int8 value) {
+  if (line == 0) {
+    pds_[kUnitLine1].setDcwKeyFollow(value);
+    pds_[kUnitLine1Detuned].setDcwKeyFollow(value);
+  } else {
+    pds_[kUnitLine2].setDcwKeyFollow(value);
+  }
+}
+
 void Voice::setLineParam(int32 line, int32 offset, ParamValue value) {
   if (line == 0) {
     applyLineParam(pds_[kUnitLine1], offset, value);

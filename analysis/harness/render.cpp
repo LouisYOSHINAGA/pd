@@ -2,7 +2,8 @@
 // usage: render <params.txt> <out.raw>
 // params.txt: "<lineSelect> <detuneRatio> <note> <gateSeconds> <totalSeconds>"
 //             followed by 2 lines of kNumLineParams normalized values and
-//             optionally "<octave> <line-1 DCA key follow> <line-2 DCA key follow>".
+//             optionally "<octave> <line-1 DCA key follow> <line-2 DCA key follow>"
+//             and then "<line-1 DCW key follow> <line-2 DCW key follow>".
 #include <cstdio>
 #include <vector>
 #include "voice.h"
@@ -30,6 +31,10 @@ int main(int argc, char** argv) {
     voice.setOctaveRange(octave);
     voice.setDcaKeyFollow(0, static_cast<Steinberg::int8>(kf1));
     voice.setDcaKeyFollow(1, static_cast<Steinberg::int8>(kf2));
+    if (std::fscanf(f, "%d %d", &kf1, &kf2) == 2) {
+      voice.setDcwKeyFollow(0, static_cast<Steinberg::int8>(kf1));
+      voice.setDcwKeyFollow(1, static_cast<Steinberg::int8>(kf2));
+    }
   }
   std::fclose(f);
   const int n = static_cast<int>(total * kInternalSampleRate);

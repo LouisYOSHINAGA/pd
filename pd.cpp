@@ -2,6 +2,7 @@
 
 #include "pd.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include "const.h"
@@ -194,7 +195,8 @@ void PD::resetPhase() {
 }
 
 double PD::generate(double freq, bool& isDcaEnd) {
-  phasetime_ += 2 * M_PI * freq * std::exp2(eg(EgKind::kDco).generate() / 12.0) / kInternalSampleRate;
+  double oscFreq = freq * std::exp2(eg(EgKind::kDco).generate() / 12.0);
+  phasetime_ += 2 * M_PI * oscFreq / kInternalSampleRate;
   while (phasetime_ >= 2 * M_PI) {
     phasetime_ -= 2 * M_PI;
     // When a second waveform is selected, alternate waveforms every cycle
@@ -205,7 +207,7 @@ double PD::generate(double freq, bool& isDcaEnd) {
   }
   AbstractGenerator* generator =
       onSecondWaveform_ ? generatorSecond_.get() : generatorFirst_.get();
-  generator->setDcw(eg(EgKind::kDcw).generate());
+  generator->setDcw(std::min(eg(EgKind::kDcw).generate(), dcwLimit(oscFreq)));
   return eg(EgKind::kDca).generate(isDcaEnd) * generator->generate(phasetime_);
 }
 
@@ -233,6 +235,10 @@ void PD::setEgEndPoint(EgKind kind, int8 point) {
 
 void PD::setDcaKeyFollow(int8 value) {
   eg(EgKind::kDca).setKeyFollow(value);
+}
+
+void PD::setDcwKeyFollow(int8 value) {
+  eg(EgKind::kDcw).setKeyFollow(value);
 }
 
 void PD::restartEg() {

@@ -3,7 +3,8 @@
   C1  key 84, KF 0, DCO +12 st held      -> stops like key 96 KF 0 (cap follows the pitch)
   C4  key 84, KF 9, DCO +12 st held      -> stops like key 84 KF 9 (subtraction by the key)
   C3  key 84, KF 0, DCO rate 20 glide +12 -> the cap is that of the current pitch
-  E   key 96, KF 0, DCW (99, 99) then (24, 0) sustain
+  E   key 96, DCW (99, 99) then (24, 0) sustain: at KF 0 the output stays at the cap until
+      the accumulator falls below it (the cap acts on the output); KF 9 subtracts >= 127
 DCW step 1 = (24, 99) sustain for C1, C3, C4. Also measures the DCO glide speed of C3.
 """
 import numpy as np, os
@@ -47,7 +48,12 @@ if __name__ == '__main__':
     m = (t > 0.5) & (t < 3.8)
     slope = np.polyfit(t[m], 12*np.log2(F0[m]/(1046.5*1.0032)), 1)[0]
     print('   DCO rate 20 glide: %.2f semitones/s (eg.cpp model: %.2f)' % (slope, 80*8.96e6/256/(12*65536)))
-    f = os.path.join(D, 'dcw_r1_99_l1_99_r2_24_l2_00_r3_99_l3_00_note_96.wav')
-    t, r = spectra(f, 96)
-    print('E: H2/H1 at 0.05/0.5/1/2/3/4/6 s: %s dB (a DCW of code 75 gives about -11 dB)'
-          % ' '.join('%.0f' % r[int(s/0.02), 1] for s in (0.05, 0.5, 1, 2, 3, 4, 6)))
+    print('E (key 96): dcw code at 0.5/2/3/3.5/4/5/6/7 s')
+    print('   cap on the target:  %s' % ' '.join('%5.1f' % max(0, 75.1 - CODES_PER_S*s) for s in (0.5, 2, 3, 3.5, 4, 5, 6, 7)))
+    print('   cap on the output:  %s' % ' '.join('%5.1f' % min(75.1, 127 - CODES_PER_S*s) for s in (0.5, 2, 3, 3.5, 4, 5, 6, 7)))
+    for kf in (0, 9):
+        f = os.path.join(D, 'dcw_r1_99_l1_99_r2_24_l2_00_r3_99_l3_00_kf_%d_note_96.wav' % kf)
+        t, est, _ = dcw_track(f, 96)
+        code = est/0.95*127
+        print('   KF %d measured:     %s' % (kf, ' '.join('%5.1f' % np.median(code[int(s/0.02) - 2:int(s/0.02) + 3])
+                                                     for s in (0.5, 2, 3, 3.5, 4, 5, 6, 7))))

@@ -46,7 +46,8 @@ def render(p, gate=5.0, total=8.0, tag='new', key_follow=True):
             f.write(' '.join('%.12f' % x for x in line_params(line)) + '\n')
         if tag != 'old':
             kfs = [(line['dca']['kf'] or 0) if key_follow else 0 for line in p['lines']]
-            f.write('%d %d %d\n' % (octave, kfs[0], kfs[1]))
+            wkfs = [(line['dcw']['kf'] or 0) if key_follow else 0 for line in p['lines']]
+            f.write('%d %d %d %d %d\n' % (octave, kfs[0], kfs[1], wkfs[0], wkfs[1]))
     raw = fn.replace('.txt', '.raw')
     subprocess.run([EXE, fn, raw], check=True)
     y = np.fromfile(raw, dtype=np.float32).astype(np.float64)

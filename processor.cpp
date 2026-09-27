@@ -135,6 +135,11 @@ void PDProcessor::applyParameter(int32 paramId, ParamValue value) {
     for (Voice& voice : voices_) {
       voice.setDcaKeyFollow(paramId - kParamLine1DcaKeyFollow, keyFollow);
     }
+  } else if (paramId == kParamLine1DcwKeyFollow || paramId == kParamLine2DcwKeyFollow) {
+    int8 keyFollow = static_cast<int8>(decodeOptionIndex(value, kNumKeyFollowOptions));
+    for (Voice& voice : voices_) {
+      voice.setDcwKeyFollow(paramId - kParamLine1DcwKeyFollow, keyFollow);
+    }
   }
   // kParamCcEditLine only affects the controller's MIDI CC routing.
 }

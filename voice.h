@@ -48,8 +48,9 @@ class Voice {
   // Octave range shift (-1..+1), applied at the next note-on to the pitch and
   // to the note that selects the key follow speed.
   void setOctaveRange(int octave);
-  // DCA key follow (0..9) of `line` (0: line 1, mirrored into 1'; 1: line 2).
+  // DCA / DCW key follow (0..9) of `line` (0: line 1, mirrored into 1'; 1: line 2).
   void setDcaKeyFollow(int32 line, int8 value);
+  void setDcwKeyFollow(int32 line, int8 value);
   // Applies one parameter of a line block; `line` is 0 (line 1) or 1 (line 2),
   // `offset` is the position within the block (see layout in const.h).
   // Line-1 parameters are mirrored into the detuned line-1 unit.

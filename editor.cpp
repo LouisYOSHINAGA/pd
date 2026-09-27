@@ -613,12 +613,16 @@ void PDEditor::buildLinePanel(CFrame* frame, double x, int32 lineBase, const cha
     addLabel(panel, CRect(410, top + 74, 448, top + 88), "END", skin().textDim, 10);
     addMenu(panel, CRect(448, top + 71, 500, top + 91), strip.endTag, endEntries);
 
-    if (egIndex == static_cast<int32>(EgKind::kDca)) {
-      ParamID keyFollowTag = lineIndex == 0 ? kParamLine1DcaKeyFollow : kParamLine2DcaKeyFollow;
+    if (egIndex != static_cast<int32>(EgKind::kDco)) {  // the CZ has no DCO key follow
+      bool isDca = egIndex == static_cast<int32>(EgKind::kDca);
+      ParamID keyFollowTag = isDca
+          ? (lineIndex == 0 ? kParamLine1DcaKeyFollow : kParamLine2DcaKeyFollow)
+          : (lineIndex == 0 ? kParamLine1DcwKeyFollow : kParamLine2DcwKeyFollow);
       addLabel(panel, CRect(410, top + 112, 448, top + 126), "KF", skin().textDim, 10);
       addMenu(panel, CRect(448, top + 109, 500, top + 129), keyFollowTag, keyFollowEntries);
       bindings_[keyFollowTag].control->setTooltipText(
-        "DCA key follow: faster envelope on higher notes (0 = off)"
+        isDca ? "DCA key follow: faster envelope on higher notes (0 = off)"
+              : "DCW key follow: lower DCW levels on higher notes (0 = off)"
       );
     }
 
