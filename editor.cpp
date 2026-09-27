@@ -517,8 +517,13 @@ void PDEditor::buildGlobalRow(CFrame* frame) {
     "Octave range: shifts both lines (key follow follows the shifted note)"
   );
 
-  addLabel(frame, CRect(880, 76, 940, 90), "SKIN", skin().textDim, 11, true);
-  COptionMenu* skinMenu = new COptionMenu(CRect(880, 94, 980, 118), this, kSkinMenuTag);
+  addLabel(frame, CRect(870, 76, 930, 90), "TUNE", skin().textDim, 11, true);
+  addKnob(frame, CRect(872, 92, 910, 130), kParamMasterTune, skin().eg[1], true,
+          "Master tune in cents (the recorded CZ-101 plays about +10)");
+  attachValueLabel(frame, CRect(862, 131, 920, 147), kParamMasterTune, kMasterTuneRangeCents);
+
+  addLabel(frame, CRect(940, 76, 1000, 90), "SKIN", skin().textDim, 11, true);
+  COptionMenu* skinMenu = new COptionMenu(CRect(940, 94, 1040, 118), this, kSkinMenuTag);
   for (int32 i = 0; i < kNumSkins; i++) {
     skinMenu->addEntry(kSkins[i].name);
   }

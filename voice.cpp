@@ -14,6 +14,7 @@ Voice::Voice()
     : egEnded_{},
       lineSelect_(LineSelect::kLine1),
       detuneRatio_(1.0),
+      tuneRatio_(1.0),
       octaveRange_(0),
       channel_(-1),
       note_(-1),
@@ -76,7 +77,7 @@ bool Voice::runUnit(int unit, double freq, double& out) {
 }
 
 double Voice::generate(double pitchBend) {
-  double freq = baseFreq_ * pow(2.0, pitchBend / 12.0);
+  double freq = baseFreq_ * tuneRatio_ * pow(2.0, pitchBend / 12.0);
   double detunedFreq = freq * detuneRatio_;
   double out = 0.0;
   bool anyAlive = false;
@@ -118,6 +119,10 @@ void Voice::setDetuneRatio(double ratio) {
 
 void Voice::setOctaveRange(int octave) {
   octaveRange_ = octave;
+}
+
+void Voice::setMasterTune(int cents) {
+  tuneRatio_ = pow(2.0, cents / 1200.0);
 }
 
 void Voice::setDcaKeyFollow(int32 line, int8 value) {

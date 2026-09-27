@@ -205,6 +205,12 @@ tresult PLUGIN_API PDController::initialize(FUnknown* context) {
     kNumKeyFollowOptions - 1, 0, kNumKeyFollowOptions - 1, 0
   ));
 
+  // master tune in cents (applies to both lines)
+  parameters.addParameter(new DiscreteRangeParameter(
+    STR16("Master Tune"), kParamMasterTune, STR16("cent"),
+    2 * kMasterTuneRangeCents, -kMasterTuneRangeCents, kMasterTuneRangeCents, 0
+  ));
+
   // DCW key follow per line: lower DCW levels on higher notes
   parameters.addParameter(new DiscreteRangeParameter(
     STR16("L1 DCW Key Follow"), kParamLine1DcwKeyFollow, nullptr,
@@ -450,6 +456,8 @@ constexpr CtrlNumber kCcEditWaveformFirst = 89;
 constexpr CtrlNumber kCcEditWaveformSecond = 90;
 // octave range (values 0..127 -> {-1, 0, +1}); right after the DCO EG block
 constexpr CtrlNumber kCcOctaveRange = 31;
+// master tune (values 0..127 -> -100..+100 cents); General Purpose 5, no conventional meaning
+constexpr CtrlNumber kCcMasterTune = 80;
 // DCW key follow of the CC edit line (values 0..127 -> 0..9); right after the DCW EG block
 constexpr CtrlNumber kCcEditDcwKeyFollow = 63;
 // DCA key follow of the CC edit line (values 0..127 -> 0..9); right after the DCA EG block
@@ -523,6 +531,9 @@ tresult PLUGIN_API PDController::getMidiControllerAssignment(int32 busIndex, int
       return kResultTrue;
     case kCcOctaveRange:
       id = kParamOctaveRange;
+      return kResultTrue;
+    case kCcMasterTune:
+      id = kParamMasterTune;
       return kResultTrue;
     case kCcEditDcwKeyFollow:
       id = getParamNormalized(kParamCcEditLine) < 0.5 ? kParamLine1DcwKeyFollow

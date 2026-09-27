@@ -48,6 +48,8 @@ class Voice {
   // Octave range shift (-1..+1), applied at the next note-on to the pitch and
   // to the note that selects the key follow speed.
   void setOctaveRange(int octave);
+  // Master tune in cents; applies immediately, also to sounding notes.
+  void setMasterTune(int cents);
   // DCA / DCW key follow (0..9) of `line` (0: line 1, mirrored into 1'; 1: line 2).
   void setDcaKeyFollow(int32 line, int8 value);
   void setDcwKeyFollow(int32 line, int8 value);
@@ -76,6 +78,7 @@ class Voice {
   std::array<bool, kNumUnits> egEnded_;
   LineSelect lineSelect_;
   double detuneRatio_;
+  double tuneRatio_;
   int octaveRange_;
   int channel_;
   int note_;

@@ -15,9 +15,9 @@ constexpr double kEpsilon = 0.00001;
 
 // Version tag written at the head of the processor state stream.
 // v2 appended kParamCcEditLine, v3 the mono/poly triggers, v4 the octave
-// range and the DCA key follow, v5 the DCW key follow; older streams are
-// still readable.
-constexpr int kStateVersion = 5;
+// range and the DCA key follow, v5 the DCW key follow, v6 the master tune;
+// older streams are still readable.
+constexpr int kStateVersion = 6;
 
 // Oscilloscope: the processor streams frames of recent output samples to the
 // controller as messages; the editor's scope view renders the latest frame.
@@ -97,6 +97,10 @@ constexpr double kDetuneFineStepCents = 100.0 / kDetuneFineRange;
 // shifted note, as on the hardware.
 constexpr int kOctaveRangeMax = 1;
 
+// Master tune: -100..+100 cents in 1-cent steps (the CZ-101 recorded for the
+// envelope analysis plays about 10 cents sharp).
+constexpr int kMasterTuneRangeCents = 100;
+
 // CZ KEY FOLLOW values 0..9 (implemented for the DCA).
 constexpr int kNumKeyFollowOptions = 10;
 
@@ -146,6 +150,9 @@ enum ParamId {
   kParamLine1DcwKeyFollow,
   kParamLine2DcwKeyFollow,
 
+  // Appended in state v6.
+  kParamMasterTune,
+
   kNumParams
 };
 
@@ -157,6 +164,7 @@ inline int32_t numParamsOfStateVersion(int32_t version) {
     case 2: return kParamMonoTrigger;
     case 3: return kParamOctaveRange;
     case 4: return kParamLine1DcwKeyFollow;
+    case 5: return kParamMasterTune;
     case kStateVersion: return kNumParams;
     default: return 0;
   }

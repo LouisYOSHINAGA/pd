@@ -32,6 +32,7 @@ ParamValue PDProcessor::defaultParamValue(int32 paramId) {
     case kParamDetuneNote:
     case kParamDetuneFine:
     case kParamOctaveRange:
+    case kParamMasterTune:
       return 0.5;
     case kParamVolume:
       return 0.5;
@@ -134,6 +135,11 @@ void PDProcessor::applyParameter(int32 paramId, ParamValue value) {
     int8 keyFollow = static_cast<int8>(decodeOptionIndex(value, kNumKeyFollowOptions));
     for (Voice& voice : voices_) {
       voice.setDcaKeyFollow(paramId - kParamLine1DcaKeyFollow, keyFollow);
+    }
+  } else if (paramId == kParamMasterTune) {
+    int cents = decodeSignedOption(value, kMasterTuneRangeCents);
+    for (Voice& voice : voices_) {
+      voice.setMasterTune(cents);
     }
   } else if (paramId == kParamLine1DcwKeyFollow || paramId == kParamLine2DcwKeyFollow) {
     int8 keyFollow = static_cast<int8>(decodeOptionIndex(value, kNumKeyFollowOptions));

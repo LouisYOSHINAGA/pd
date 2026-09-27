@@ -56,6 +56,7 @@ PD音源では、単一のcos波の位相の読み出しを歪ませることで
 | Mono/Poly | Poly / Mono | 発音モード |
 | Detune Octave / Note / Fine | ±3 / ±11 / ±60 | Prime側のLINE（`1'`, `2'`）のdetune |
 | Octave Range | {-1, 0, +1} | 両LINEの音程をオクターブ単位でシフト（Key Followもシフト後の音程で決まる） |
+| Master Tune | -100..+100 cent | 全体の音程の微調整（発音中の音にも即座に反映。解析に用いた実機は約 +10 cent） |
 | L1/L2 Waveform 1st | 8波形 | 各LINEの第1波形 |
 | L1/L2 Waveform 2nd | {8波形, Off} | 各LINEの第2波形（optional）|
 | L1/L2 {DCO, DCW, DCA} EG Rate 1–8 | {0..99} | 各stepの遷移速度 |
@@ -93,6 +94,7 @@ CCがどちらのLINEを編集するかは`CC Edit Line`パラメータで選択
 | Detune {Octave,Note,Fine} | CC {85,86,87} | [param] Detune {Octave,Note,Fine} |
 | Wavefome {1,2} | CC {89,90} | [param] L1/L2 Waveform {1st,2nd} |
 | Octave Range | CC 31 | 0..42: -1, 43..84: 0, 85..127: +1 |
+| Master Tune | CC 80 | [param] Master Tune（0..127 → -100..+100 cent） |
 | DCW Key Follow | CC 63 | [param] L1/L2 DCW Key Follow（対象LINEは`CC Edit Line`で選択） |
 | DCA Key Follow | CC 119 | [param] L1/L2 DCA Key Follow（対象LINEは`CC Edit Line`で選択） |
 
