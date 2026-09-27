@@ -14,6 +14,7 @@
 - `czenvrec/20260927_2/`: DCW Key Follow × 鍵（DCW rate 24 で 99 まで上昇）→ `dcwkf.py`（倍音照合による dcw(t)）、`dcwkf2.py`（上昇が止まる level code）、`dcwkf_presets.py`（モデルをプリセットで確認）
   - Key Follow で DCW の速度は変わらない。高音での DCW の制限は 2 種類: KF によらない頭打ち（127 - code ≈ 0.024*f[Hz]、Violin からは DCO envelope を含む発振周波数で決まるらしい）と、KF 1〜9 の level からの引き算（発音の鍵で決まる）。level 99 では KF 1〜7 の引き算は頭打ちに隠れて見えない。
 - `czenvrec/20260927_3/`: DCW level 50（鍵 96, KF 0〜9 と 鍵 72, KF 9）と level 75（鍵 84, KF 1〜9）→ `check_20260927_3.py`（KF 0 は頭打ちのみ、KF 1〜9 は KF に応じた量が level から引かれる）
+- `czenvrec/20260927_4/`: DCO で音程を +12 半音上げた場合など → `check_20260927_4.py`（頭打ちはその時点の発振音程で、KF の引き算は鍵で決まる。DCO rate 20 の glide は 2.75 半音/s で eg.cpp のモデル 3.56 より遅い。E（DCW (99,99)→(24,0)）は最初から純 sine で未解明）
 
 必要なもの: Python 3 + numpy / scipy / matplotlib、録音 (`czenvrec/*.wav`, `CZ101PresetParam .csv`)。
 出力 (`plots/`, `render/`) は git 管理外。
