@@ -1,4 +1,4 @@
-"""Same-note comparisons for the DCW key follow recordings (czenvrec/20260927_2, _3).
+"""Same-note comparisons for the DCW key follow recordings (czenvrec/20260927_2).
 
 DCW step 1 = (24, 99) rises 14.95 codes/s, so the level code at which the rise stops is
 known from the stop time. The stop time is the knee of a line + flat fit to dcw(t) of
@@ -6,8 +6,9 @@ dcwkf.dcw_track (checked against the time at which KF 9 departs from KF 0 at the
 note: agrees within 0.05 s). Also compares KF 5 with KF 0.
 
 Result: the DCW rate is unchanged by key follow; instead the DCW level stops at a lower
-value at high notes, even at KF 0 (127 - code ~ 0.024*f at KF 0). KF 1..7 behave like KF 0
-at note 72; KF 8 and 9 lower the limit.
+value at high notes, even at KF 0 (127 - code ~ 0.024*f at KF 0). KF 1..7 are identical to KF 0 at
+notes 72, 84, 96; only KF 8 and 9 lower the level further. dcwkf_presets.py shows that the
+limit is subtracted from the level.
 """
 import numpy as np
 from dcwkf import files, load, onsets, dcw_track
@@ -59,23 +60,22 @@ if __name__ == '__main__':
         m = (a[:, 1] > -30)
         print('   note %3d: %.2f dB' % (n, np.median(np.abs(a[m, 1:3] - b[m, 1:3]))))
     runs = {}
-    for sub in ('20260927_2', '20260927_3'):
-        for f, kf, n in files(sub):
-            runs.setdefault((kf, n), []).append(stop_code(f, n))
+    for f, kf, n in files():
+        runs.setdefault((kf, n), []).append(stop_code(f, n))
     kfs = sorted(set(kf for kf, _ in runs)); notes = sorted(set(n for _, n in runs))
     print('level code at which the DCW rise stops (level 99 = code 127; "-": still rising at the')
-    print('end of the hold, i.e. above %.0f; "/" separates re-recordings)' % (CODES_PER_S*7.8))
-    print('   kf ' + ''.join('%14d' % n for n in notes))
+    print('end of the hold, i.e. above %.0f)' % (CODES_PER_S*7.8))
+    print('   kf ' + ''.join('%8d' % n for n in notes))
     for kf in kfs:
         row = ''
         for n in notes:
             v = runs.get((kf, n))
-            row += '%14s' % ('' if v is None else '/'.join('-' if c is None else '%.1f' % c for c in v))
+            row += '%8s' % ('' if v is None else '-' if v[0] is None else '%.1f' % v[0])
         print('   %d  ' % kf + row)
     print('(127 - code) / f  [codes/kHz]')
     for kf in kfs:
         row = ''
         for n in notes:
             v = [c for c in runs.get((kf, n), []) if c]
-            row += '%14s' % ('%.1f' % ((127 - np.mean(v))/(440*2**((n - 69)/12))*1e3) if v else '')
+            row += '%8s' % ('%.1f' % ((127 - v[0])/(440*2**((n - 69)/12))*1e3) if v else '')
         print('   %d  ' % kf + row)
