@@ -11,8 +11,9 @@
 - `czenvrec/20260926/`: DCA Key Follow 0〜9 × 鍵 C1〜C8（24〜108）→ `keyfollow2.py`（attack/release の rate code、速度比、sustain）、`keyfollow_model.py`（速度比 F = (12+k)/12 の補間モデルと検証、k の表 `dca_keyfollow_k.csv` を生成）
   - 20260922 と 20260925 B/C の初期化パッチは表示と内部状態が食い違っており、DCA が 22 code 速く、音色も Resonance III 相当だった。
     設定を入れ直した D はプリセットと同じ速度則（rate 24 → code 30）・純正弦波になる。
-- `czenvrec/20260927_2/`: DCW Key Follow × 鍵（DCW rate 24 で 99 まで上昇）→ `dcwkf.py`（倍音照合による dcw(t)）、`dcwkf2.py`（上昇が止まる level code）、`dcwkf_presets.py`（level 99 未満への効き方をプリセットで確認）
-  - Key Follow で DCW の速度は変わらず、鍵ごとの値が DCW の level から引かれる（頭打ち・比率ではない）。KF 0 でも高音では引かれ（127 - code ≈ 0.024*f[Hz]）、KF 1〜7 は KF 0 と同じ、KF 8, 9 で大きくなる。鍵は Octave Range を含む発音の鍵で、DCO envelope は含まない。
+- `czenvrec/20260927_2/`: DCW Key Follow × 鍵（DCW rate 24 で 99 まで上昇）→ `dcwkf.py`（倍音照合による dcw(t)）、`dcwkf2.py`（上昇が止まる level code）、`dcwkf_presets.py`（モデルをプリセットで確認）
+  - Key Follow で DCW の速度は変わらない。高音での DCW の制限は 2 種類: KF によらない頭打ち（127 - code ≈ 0.024*f[Hz]、Violin からは DCO envelope を含む発振周波数で決まるらしい）と、KF 8, 9 の level からの引き算（発音の鍵で決まる）。level 99 では KF 1〜7 は KF 0 と同じだが、頭打ちに隠れた引き算があるかは未確認。
+- `czenvrec/20260927_3/`: DCW level 50 で (鍵 96, KF 0) と (鍵 72, KF 9) → `check_20260927_3.py`（前者は頭打ち、後者は引き算）
 
 必要なもの: Python 3 + numpy / scipy / matplotlib、録音 (`czenvrec/*.wav`, `CZ101PresetParam .csv`)。
 出力 (`plots/`, `render/`) は git 管理外。

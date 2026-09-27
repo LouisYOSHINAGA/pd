@@ -1,28 +1,43 @@
-"""Which way does the DCW key follow limit act on a DCW level below 99? Checked with presets
-whose DCW sustains at a known level at a note where the limit is measured (dcwkf2.py).
+"""DCW key follow model checked with presets whose DCW sustains at a known level.
 
-For a level code L and the stop code S measured with level 99 (code 127) at that note:
-  cap       min(L, S)
-  scale     L * S / 127
-  subtract  max(0, L - (127 - S))
-The note is the sounding note (key + 12 * octave range); the DCO envelope is not included.
+check_20260927_3.py shows two separate limits:
+  * a cap that does not depend on the level (KF 0 at note 96: level 50 is not reduced),
+    127 - cap ~ 0.024 * f[Hz] (fit to the KF 0 stops of dcwkf2.py at notes 81, 84, 96)
+  * a key follow value S(KF, note) subtracted from the level (KF 9 at note 72)
+Model: dcw code = min(max(0, L - S(KF, sounding note)), cap(f)).
+Whether f is the key or the oscillator frequency including the DCO envelope is compared
+with Violin, whose DCO sustains 12 semitones up.
 """
 import numpy as np
 from dcwtrack import track
 
-CASES = [  # preset, grid f0, wf1, wf2, DCW sustain level code, sounding note, KF, S
-    ('violin',     880, 1, 3, 108, 81, 0, 106.2),  # DCO +12 st sustained: oscillator at 1760 Hz
-    ('flute',      880, 5, 0,  73, 81, 8, 99.4),   # KF 8 at note 81: interpolated between 72 and 84
-    ('synth_bass', 220, 2, 3,  95, 69, 7, None),   # limit at note 69 not measured (> 117)
+S = {8: {72: 14.2, 84: 32.1, 96: 73.7},              # 127 - stop code at level 99 (dcwkf2.py)
+     9: {69: 19.9, 72: 26.2, 81: 48.3, 84: 58.2}}
+
+def freq(note):
+    return 440*2**((note - 69)/12)
+
+def subtract(kf, note):
+    if kf not in S:
+        return 0.0
+    n = sorted(S[kf])
+    return float(np.interp(freq(note), [freq(x) for x in n], [S[kf][x] for x in n]))
+
+def cap(f):
+    return min(127.0, 127 - 0.024*f)
+
+CASES = [  # preset, grid f0, wf1, wf2, DCW sustain level code, sounding note, DCO shift [st], KF
+    ('violin',     880, 1, 3, 108, 81, 12, 0),
+    ('flute',      880, 5, 0,  73, 81,  0, 8),
+    ('synth_bass', 220, 2, 3,  95, 69,  0, 7),
 ]
 
 if __name__ == '__main__':
-    print('%-11s %5s %4s %3s %6s | %6s %6s %6s %6s' % ('preset', 'level', 'note', 'KF', 'S', 'CZ', 'cap', 'scale', 'subtr'))
-    for sub, f0, w1, w2, L, note, kf, S in CASES:
+    print('%-11s %5s %4s %4s %3s | %6s | %11s %11s' % ('preset', 'level', 'note', 'DCO', 'KF', 'CZ', 'f = key', 'f = osc'))
+    for sub, f0, w1, w2, L, note, dco, kf in CASES:
         t, est, err, _ = track(sub, f0, w1, w2, tmax=3.0)
         m = (t > 0.5) & (t < 2.5)
         cz = np.median(est[m])/0.95*127
-        if S is None:
-            print('%-11s %5d %4d %3d %6s | %6.1f  (level - CZ = %.1f)' % (sub, L, note, kf, '-', cz, L - cz))
-            continue
-        print('%-11s %5d %4d %3d %6.1f | %6.1f %6.1f %6.1f %6.1f' % (sub, L, note, kf, S, cz, min(L, S), L*S/127, max(0, L - (127 - S))))
+        lv = max(0.0, L - subtract(kf, note))
+        print('%-11s %5d %4d %+4d %3d | %6.1f | %11.1f %11.1f'
+              % (sub, L, note, dco, kf, cz, min(lv, cap(freq(note))), min(lv, cap(freq(note + dco)))))

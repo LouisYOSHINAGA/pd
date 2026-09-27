@@ -7,8 +7,8 @@ note: agrees within 0.05 s). Also compares KF 5 with KF 0.
 
 Result: the DCW rate is unchanged by key follow; instead the DCW level stops at a lower
 value at high notes, even at KF 0 (127 - code ~ 0.024*f at KF 0). KF 1..7 are identical to KF 0 at
-notes 72, 84, 96; only KF 8 and 9 lower the level further. dcwkf_presets.py shows that the
-limit is subtracted from the level.
+notes 72, 84, 96; only KF 8 and 9 lower the level further. check_20260927_3.py shows that
+the KF 0 limit is a cap while KF 8/9 subtract from the level (see dcwkf_presets.py).
 """
 import numpy as np
 from dcwkf import files, load, onsets, dcw_track
