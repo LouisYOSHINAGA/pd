@@ -45,6 +45,7 @@
 | `attack.py` | preset の立ち上がりを 1 ms 精度で測定（上昇も下降と同じ速度則であることの確認） |
 | `compare_attack.py` | 16 音色の立ち上がりを実機と VST で比較（-40 dB から -20/-10/-6/-3/-1 dB までの時間） |
 | `attack_start.py` | 20260922 の遅い attack を音量カーブ込みで fit し、立ち上がりの開始点を推定（level code 0 から開始、dB に対して直線＝振幅は指数的） |
+| `trumpet_attack.py` | Trumpet の最初の DCA 段の速さと開始点を実機と VST で比較（VST が約 7% 速い、どちらも code 0 から） |
 | `render_ab.py` | 16 音色の実機録音と VST を同条件・音量合わせで書き出す（`render/ab/`、聴き比べ用、commit しない） |
 | `gate.py` | 実機の発音長（attack 開始 → release 開始）と MIDI の gate の差（note off の反応遅れ、約 +12 ms）の測定 |
 | `fastrms.py` | 1 周期窓 RMS による高速な attack / release の測定（note off 後の rate 上限 code 104 の確認） |
