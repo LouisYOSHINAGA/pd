@@ -2,6 +2,9 @@
 
 #define _USE_MATH_DEFINES
 #include <math.h>
+#include <string.h>
+
+#include <utility>
 
 #include "base/source/fstreamer.h"
 #include "pluginterfaces/vst/ivstmessage.h"
@@ -22,6 +25,24 @@ FUnknown* PDProcessor::createInstance(void*) {
 
 PDProcessor::PDProcessor() {
   setControllerClass(ControllerUID);
+  scopeExchange_ = std::make_unique<DataExchangeHandler>(
+    this, [](DataExchangeHandler::Config& config, const ProcessSetup&) {
+      config.blockSize = sizeof(float) * kScopeFrameSize;
+      config.numBlocks = 8;
+      config.userContextID = kScopeExchangeId;
+      return true;
+    }
+  );
+  paramSyncExchange_ = std::make_unique<DataExchangeHandler>(
+    this, [](DataExchangeHandler::Config& config, const ProcessSetup&) {
+      config.blockSize = sizeof(ParamSyncBlock);
+      config.numBlocks = 8;
+      config.userContextID = kParamSyncExchangeId;
+      return true;
+    }
+  );
+  heldNotes_.reserve(128);  // no allocation on the audio thread in practice
+  retriggerNotes_.reserve(128);
   PDProcessor::initializeParameter();
 }
 
@@ -43,6 +64,8 @@ ParamValue PDProcessor::defaultParamValue(int32 paramId) {
 
 void PDProcessor::initializeParameter() {
   voices_ = std::array<Voice, kMaxVoices>{};
+  fadeVoices_ = std::array<Voice, kNumFadeVoices>{};
+  nextFadeVoice_ = 0;
   nextVoiceAge_ = 0;
   heldNotes_.clear();
   for (int32 paramId = 0; paramId < kNumParams; paramId++) {
@@ -57,6 +80,30 @@ tresult PLUGIN_API PDProcessor::initialize(FUnknown* context) {
     addAudioOutput(STR16("AudioOutput"), SpeakerArr::kStereo);   // output: stereo audio
   }
   return result;
+}
+
+tresult PLUGIN_API PDProcessor::connect(IConnectionPoint* other) {
+  tresult result = AudioEffect::connect(other);
+  scopeExchange_->onConnect(other, getHostContext());
+  paramSyncExchange_->onConnect(other, getHostContext());
+  return result;
+}
+
+tresult PLUGIN_API PDProcessor::disconnect(IConnectionPoint* other) {
+  scopeExchange_->onDisconnect(other);
+  paramSyncExchange_->onDisconnect(other);
+  return AudioEffect::disconnect(other);
+}
+
+tresult PLUGIN_API PDProcessor::setActive(TBool state) {
+  if (state) {
+    scopeExchange_->onActivate(processSetup);
+    paramSyncExchange_->onActivate(processSetup);
+  } else {
+    scopeExchange_->onDeactivate();
+    paramSyncExchange_->onDeactivate();
+  }
+  return AudioEffect::setActive(state);
 }
 
 tresult PLUGIN_API PDProcessor::setupProcessing(ProcessSetup& setup) {
@@ -79,6 +126,7 @@ tresult PLUGIN_API PDProcessor::setBusArrangements(SpeakerArrangement* inputs, i
 }
 
 tresult PLUGIN_API PDProcessor::process(ProcessData& data) {
+  applyPendingPreset();
   processParameter(data.inputParameterChanges);
   sendParamSync();
   processEvent(data.inputEvents);
@@ -100,15 +148,11 @@ void PDProcessor::applyParameter(int32 paramId, ParamValue value) {
     lineSelect_ = static_cast<LineSelect>(
       decodeOptionIndex(value, static_cast<int>(LineSelect::kNumLineSelects))
     );
-    for (Voice& voice : voices_) {
-      voice.setLineSelect(lineSelect_);
-    }
   } else if (paramId == kParamMonoPoly) {
     bool mono = value >= 0.5;
     if (mono != mono_) {
       mono_ = mono;
-      releaseAllVoices();
-      heldNotes_.clear();
+      allNotesOff();
     }
   } else if (paramId == kParamDetuneOctave) {
     detuneOctave_ = decodeSignedOption(value, kDetuneOctaveRange);
@@ -119,39 +163,62 @@ void PDProcessor::applyParameter(int32 paramId, ParamValue value) {
   } else if (paramId == kParamDetuneFine) {
     detuneFine_ = decodeSignedOption(value, kDetuneFineRange);
     updateDetune();
-  } else if (kParamLine1Begin <= paramId && paramId < kParamCcEditLine) {
-    int32 rel = paramId - kParamLine1Begin;
-    int32 line = rel / kNumLineParams;
-    int32 offset = rel % kNumLineParams;
-    for (Voice& voice : voices_) {
-      voice.setLineParam(line, offset, value);
-    }
   } else if (paramId == kParamOctaveRange) {
-    int octave = decodeSignedOption(value, kOctaveRangeMax);
-    for (Voice& voice : voices_) {
-      voice.setOctaveRange(octave);
-    }
+    octaveRange_ = decodeSignedOption(value, kOctaveRangeMax);
   } else if (paramId == kParamLine1DcaKeyFollow || paramId == kParamLine2DcaKeyFollow) {
-    int8 keyFollow = static_cast<int8>(decodeOptionIndex(value, kNumKeyFollowOptions));
-    for (Voice& voice : voices_) {
-      voice.setDcaKeyFollow(paramId - kParamLine1DcaKeyFollow, keyFollow);
-    }
+    dcaKeyFollow_[paramId - kParamLine1DcaKeyFollow] =
+        static_cast<int8>(decodeOptionIndex(value, kNumKeyFollowOptions));
   } else if (paramId == kParamMasterTune) {
-    int cents = decodeSignedOption(value, kMasterTuneRangeCents);
-    for (Voice& voice : voices_) {
-      voice.setMasterTune(cents);
-    }
+    masterTuneCents_ = decodeSignedOption(value, kMasterTuneRangeCents);
   } else if (paramId == kParamLine1DcwKeyFollow || paramId == kParamLine2DcwKeyFollow) {
-    int8 keyFollow = static_cast<int8>(decodeOptionIndex(value, kNumKeyFollowOptions));
-    for (Voice& voice : voices_) {
-      voice.setDcwKeyFollow(paramId - kParamLine1DcwKeyFollow, keyFollow);
-    }
+    dcwKeyFollow_[paramId - kParamLine1DcwKeyFollow] =
+        static_cast<int8>(decodeOptionIndex(value, kNumKeyFollowOptions));
   }
   // kParamCcEditLine only affects the controller's MIDI CC routing.
+
+  // voices still releasing a preset switched away from keep their sound
+  for (Voice& voice : voices_) {
+    if (!voice.isFrozen()) {
+      applyToVoice(voice, paramId);
+    }
+  }
+  for (Voice& voice : fadeVoices_) {
+    if (!voice.isFrozen()) {
+      applyToVoice(voice, paramId);
+    }
+  }
+}
+
+void PDProcessor::applyToVoice(Voice& voice, int32 paramId) const {
+  if (paramId == kParamLineSelect) {
+    voice.setLineSelect(lineSelect_);
+  } else if (paramId == kParamDetuneOctave || paramId == kParamDetuneNote
+             || paramId == kParamDetuneFine) {
+    voice.setDetuneRatio(detuneRatio_);
+  } else if (kParamLine1Begin <= paramId && paramId < kParamCcEditLine) {
+    int32 rel = paramId - kParamLine1Begin;
+    voice.setLineParam(rel / kNumLineParams, rel % kNumLineParams, paramValues_[paramId]);
+  } else if (paramId == kParamOctaveRange) {
+    voice.setOctaveRange(octaveRange_);
+  } else if (paramId == kParamLine1DcaKeyFollow || paramId == kParamLine2DcaKeyFollow) {
+    int32 line = paramId - kParamLine1DcaKeyFollow;
+    voice.setDcaKeyFollow(line, dcaKeyFollow_[line]);
+  } else if (paramId == kParamMasterTune) {
+    voice.setMasterTune(masterTuneCents_);
+  } else if (paramId == kParamLine1DcwKeyFollow || paramId == kParamLine2DcwKeyFollow) {
+    int32 line = paramId - kParamLine1DcwKeyFollow;
+    voice.setDcwKeyFollow(line, dcwKeyFollow_[line]);
+  }
+}
+
+void PDProcessor::syncVoice(Voice& voice) {
+  for (int32 paramId = 0; paramId < kNumParams; paramId++) {
+    applyToVoice(voice, paramId);
+  }
+  voice.setFrozen(false);
 }
 
 void PDProcessor::processParameter(IParameterChanges* changes) {
-  numPendingSync_ = 0;
   if (changes == nullptr) {
     return;
   }
@@ -174,8 +241,10 @@ void PDProcessor::processParameter(IParameterChanges* changes) {
     // sent back, otherwise controller and processor ping-pong forever.
     bool changed = 0 <= paramId && paramId < kNumParams && paramValues_[paramId] != value;
     applyParameter(paramId, value);
-    if (changed && numPendingSync_ < kNumParams) {
-      pendingSync_[numPendingSync_++] = ParamSyncEntry{paramId, value};
+    if (changed) {
+      syncPending_[paramId] = true;
+      syncValues_[paramId] = value;
+      anySyncPending_ = true;
     }
 
     // The Mono/Poly triggers are momentary: pressing the same button twice
@@ -188,17 +257,23 @@ void PDProcessor::processParameter(IParameterChanges* changes) {
 }
 
 void PDProcessor::sendParamSync() {
-  if (numPendingSync_ == 0) {
+  if (!anySyncPending_) {
     return;
   }
-  if (IMessage* message = allocateMessage()) {
-    message->setMessageID(kParamSyncMessageId);
-    message->getAttributes()->setBinary(kParamSyncMessageDataAttr, pendingSync_.data(),
-                                        sizeof(ParamSyncEntry) * numPendingSync_);
-    sendMessage(message);
-    message->release();
+  DataExchangeBlock block = paramSyncExchange_->getCurrentOrNewBlock();
+  if (block.blockID == InvalidDataExchangeBlockID) {
+    return;  // queue full (or not connected): kept for the next call
   }
-  numPendingSync_ = 0;
+  ParamSyncBlock* sync = static_cast<ParamSyncBlock*>(block.data);
+  sync->count = 0;
+  for (int32 paramId = 0; paramId < kNumParams; paramId++) {
+    if (syncPending_[paramId]) {
+      sync->entries[sync->count++] = ParamSyncEntry{paramId, syncValues_[paramId]};
+      syncPending_[paramId] = false;
+    }
+  }
+  anySyncPending_ = false;
+  paramSyncExchange_->sendCurrentBlock();
 }
 
 tresult PLUGIN_API PDProcessor::getState(IBStream* state) {
@@ -210,7 +285,10 @@ tresult PLUGIN_API PDProcessor::getState(IBStream* state) {
   if (!streamer.writeInt32(kStateVersion)) {
     return kResultFalse;
   }
-  if (!streamer.writeDoubleArray(paramValues_.data(), kNumParams)) {
+  // a preset not applied yet is already the state
+  std::lock_guard<std::mutex> lock(pendingPresetMutex_);
+  const ParamValue* values = hasPendingPreset_ ? pendingPreset_.data() : paramValues_.data();
+  if (!streamer.writeDoubleArray(values, kNumParams)) {
     return kResultFalse;
   }
   return kResultTrue;
@@ -230,26 +308,91 @@ tresult PLUGIN_API PDProcessor::setState(IBStream* state) {
   if (numParams == 0) {
     return kResultFalse;
   }
+  std::array<ParamValue, kNumParams> values;
   for (int32 paramId = 0; paramId < numParams; paramId++) {
-    double value;
-    if (!streamer.readDouble(value)) {
+    if (!streamer.readDouble(values[paramId])) {
       return kResultFalse;
     }
-    applyParameter(paramId, value);
   }
   // parameters appended after the stream's version start from their defaults
   for (int32 paramId = numParams; paramId < kNumParams; paramId++) {
-    applyParameter(paramId, defaultParamValue(paramId));
+    values[paramId] = defaultParamValue(paramId);
   }
+  // applied by process(): the host may call this while audio is running
+  queuePreset(values);
   return kResultTrue;
+}
+
+tresult PLUGIN_API PDProcessor::notify(IMessage* message) {
+  if (message != nullptr && strcmp(message->getMessageID(), kPresetMessageId) == 0) {
+    const void* data = nullptr;
+    uint32 size = 0;
+    if (message->getAttributes()->getBinary(kPresetMessageDataAttr, data, size) == kResultTrue
+        && size == sizeof(ParamValue) * kNumParams) {
+      std::array<ParamValue, kNumParams> values;
+      memcpy(values.data(), data, size);
+      queuePreset(values);
+    }
+    return kResultTrue;
+  }
+  return AudioEffect::notify(message);
+}
+
+void PDProcessor::queuePreset(const std::array<ParamValue, kNumParams>& values) {
+  std::lock_guard<std::mutex> lock(pendingPresetMutex_);
+  pendingPreset_ = values;
+  hasPendingPreset_ = true;
+}
+
+void PDProcessor::applyPendingPreset() {
+  {
+    // never wait on the audio thread: a preset being queued right now is
+    // taken by the next call
+    std::unique_lock<std::mutex> lock(pendingPresetMutex_, std::try_to_lock);
+    if (!lock.owns_lock() || !hasPendingPreset_) {
+      return;
+    }
+    presetValues_ = pendingPreset_;
+    hasPendingPreset_ = false;
+  }
+  changePreset(presetValues_);
+}
+
+void PDProcessor::changePreset(const std::array<ParamValue, kNumParams>& values) {
+  retriggerNotes_ = heldNotes_;
+  heldNotes_.clear();
+  for (Voice& voice : voices_) {
+    if (voice.isActive()) {
+      voice.setFrozen(true);
+      voice.noteOff();
+    }
+  }
+  for (Voice& voice : fadeVoices_) {
+    if (voice.isActive()) {
+      voice.setFrozen(true);  // fading out an old-preset sound
+    }
+  }
+  // mono plays on voice 0: the old sound goes on releasing in a free voice
+  if (mono_ && voices_[0].isActive()) {
+    for (int32 i = 1; i < kMaxVoices; i++) {
+      if (voices_[i].isFree()) {
+        std::swap(voices_[0], voices_[i]);
+        break;
+      }
+    }
+  }
+
+  for (int32 paramId = 0; paramId < kNumParams; paramId++) {
+    applyParameter(paramId, values[paramId]);
+  }
+  for (const HeldNote& key : retriggerNotes_) {
+    onNoteOn(key.channel, key.note, 1.f);
+  }
 }
 
 void PDProcessor::updateDetune() {
   double cents = 1200.0 * detuneOctave_ + 100.0 * detuneNote_ + kDetuneFineStepCents * detuneFine_;
-  double ratio = pow(2.0, cents / 1200.0);
-  for (Voice& voice : voices_) {
-    voice.setDetuneRatio(ratio);
-  }
+  detuneRatio_ = pow(2.0, cents / 1200.0);
 }
 
 void PDProcessor::processEvent(IEventList* events) {
@@ -287,49 +430,67 @@ void PDProcessor::releaseAllVoices() {
   }
 }
 
+void PDProcessor::allNotesOff() {
+  releaseAllVoices();
+  heldNotes_.clear();
+}
+
 int32 PDProcessor::effectiveMaxVoices() const {
   bool dualLine = lineSelect_ == LineSelect::kLine1Plus1Detuned
                || lineSelect_ == LineSelect::kLine1Plus2Detuned;
   return dualLine ? kMaxVoices / 2 : kMaxVoices;
 }
 
-Voice* PDProcessor::allocateVoice() {
+Voice* PDProcessor::allocateVoice(int channel, int note) {
   int32 numVoices = effectiveMaxVoices();
+  // the same key struck again takes back its own voice (held or releasing)
+  for (int32 i = 0; i < numVoices; i++) {
+    if (voices_[i].isPlaying(channel, note) && !voices_[i].isFrozen()) {
+      return &voices_[i];
+    }
+  }
   for (int32 i = 0; i < numVoices; i++) {
     if (voices_[i].isFree()) {
       return &voices_[i];
     }
   }
 
-  Voice* oldest = &voices_[0];
-  for (int32 i = 1; i < numVoices; i++) {
-    if (voices_[i].age() < oldest->age()) {
-      oldest = &voices_[i];
+  // steal the oldest released note; a held one only if every voice is held
+  Voice* oldest = nullptr;
+  for (bool releasedOnly : {true, false}) {
+    for (int32 i = 0; i < numVoices; i++) {
+      Voice& voice = voices_[i];
+      if (releasedOnly && !voice.isReleasing()) {
+        continue;
+      }
+      if (oldest == nullptr || voice.age() < oldest->age()) {
+        oldest = &voice;
+      }
+    }
+    if (oldest != nullptr) {
+      break;
     }
   }
   return oldest;
 }
 
 void PDProcessor::onNoteOn(int channel, int note, float velocity) {
-  if (mono_) {
-    heldNotes_.push_back(HeldNote{channel, note});
-    voices_[0].noteOn(channel, note, nextVoiceAge_++);  // last-note priority
-    return;
-  }
-  allocateVoice()->noteOn(channel, note, nextVoiceAge_++);
+  heldNotes_.push_back(HeldNote{channel, note});
+  // mono: last-note priority on voice 0
+  startVoice(mono_ ? voices_[0] : *allocateVoice(channel, note), channel, note);
 }
 
 void PDProcessor::onNoteOff(int channel, int note, float velocity) {
-  if (mono_) {
-    for (int32 i = static_cast<int32>(heldNotes_.size()) - 1; i >= 0; i--) {
-      if (heldNotes_[i].channel == channel && heldNotes_[i].note == note) {
-        heldNotes_.erase(heldNotes_.begin() + i);
-      }
+  for (int32 i = static_cast<int32>(heldNotes_.size()) - 1; i >= 0; i--) {
+    if (heldNotes_[i].channel == channel && heldNotes_[i].note == note) {
+      heldNotes_.erase(heldNotes_.begin() + i);
     }
+  }
+  if (mono_) {
     if (voices_[0].isHeld(channel, note)) {
       if (!heldNotes_.empty()) {
         // Return to the most recently pressed key that is still held.
-        voices_[0].noteOn(heldNotes_.back().channel, heldNotes_.back().note, nextVoiceAge_++);
+        startVoice(voices_[0], heldNotes_.back().channel, heldNotes_.back().note);
       } else {
         voices_[0].noteOff();
       }
@@ -344,6 +505,26 @@ void PDProcessor::onNoteOff(int channel, int note, float velocity) {
   }
 }
 
+void PDProcessor::startVoice(Voice& voice, int channel, int note) {
+  if (voice.isActive()) {
+    fadeOutOldSound(voice);
+  }
+  if (voice.isFrozen()) {
+    syncVoice(voice);  // back from the release of an old preset
+  }
+  voice.noteOn(channel, note, nextVoiceAge_++);
+}
+
+void PDProcessor::fadeOutOldSound(Voice& voice) {
+  // The new note keeps this voice slot (and so the allocation order); the
+  // old sound moves to a fade voice instead of being cut, which would click.
+  // Slots are used in turn, so a busy one is the fade closest to its end.
+  Voice& fade = fadeVoices_[nextFadeVoice_];
+  nextFadeVoice_ = (nextFadeVoice_ + 1) % kNumFadeVoices;
+  std::swap(voice, fade);
+  fade.fadeOut(kFadeTicks);
+}
+
 void PDProcessor::pushScopeSample(float sample) {
   scopeFrame_[scopeFramePos_++] = sample;
   if (scopeFramePos_ < kScopeFrameSize) {
@@ -351,13 +532,12 @@ void PDProcessor::pushScopeSample(float sample) {
   }
   scopeFramePos_ = 0;
 
-  if (IMessage* message = allocateMessage()) {
-    message->setMessageID(kScopeMessageId);
-    message->getAttributes()->setBinary(kScopeMessageDataAttr, scopeFrame_.data(),
-                                        sizeof(float) * kScopeFrameSize);
-    sendMessage(message);
-    message->release();
+  DataExchangeBlock block = scopeExchange_->getCurrentOrNewBlock();
+  if (block.blockID == InvalidDataExchangeBlockID) {
+    return;  // queue full (or not connected): this frame is dropped
   }
+  memcpy(block.data, scopeFrame_.data(), sizeof(float) * kScopeFrameSize);
+  scopeExchange_->sendCurrentBlock();
 }
 
 void PDProcessor::processReplacing(ProcessData& data) {
@@ -396,6 +576,11 @@ double PDProcessor::resample() {
 double PDProcessor::generate() {
   double mixed = 0.0;
   for (Voice& voice : voices_) {
+    if (voice.isActive()) {
+      mixed += voice.generate(pitchBend_);
+    }
+  }
+  for (Voice& voice : fadeVoices_) {
     if (voice.isActive()) {
       mixed += voice.generate(pitchBend_);
     }

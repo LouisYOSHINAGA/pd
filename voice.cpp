@@ -21,7 +21,10 @@ Voice::Voice()
       baseFreq_(0.0),
       age_(0),
       held_(false),
-      active_(false) {
+      active_(false),
+      frozen_(false),
+      fadeGain_(1.0),
+      fadeStep_(0.0) {
 }
 
 bool Voice::isFree() const {
@@ -36,8 +39,24 @@ bool Voice::isActive() const {
   return active_;
 }
 
+bool Voice::isPlaying(int channel, int note) const {
+  return active_ && channel_ == channel && note_ == note;
+}
+
+bool Voice::isReleasing() const {
+  return active_ && !held_;
+}
+
 uint64_t Voice::age() const {
   return age_;
+}
+
+bool Voice::isFrozen() const {
+  return frozen_;
+}
+
+void Voice::setFrozen(bool frozen) {
+  frozen_ = frozen;
 }
 
 void Voice::noteOn(int channel, int note, uint64_t age) {
@@ -48,6 +67,8 @@ void Voice::noteOn(int channel, int note, uint64_t age) {
   age_ = age;
   held_ = true;
   active_ = true;
+  fadeGain_ = 1.0;
+  fadeStep_ = 0.0;
   for (PD& pd : pds_) {
     pd.resetPhase();
     pd.setupEg(soundingNote);
@@ -60,6 +81,12 @@ void Voice::noteOff() {
   for (PD& pd : pds_) {
     pd.restartEg();
   }
+}
+
+void Voice::fadeOut(int ticks) {
+  held_ = false;
+  fadeGain_ = 1.0;
+  fadeStep_ = 1.0 / ticks;
 }
 
 bool Voice::runUnit(int unit, double freq, double& out) {
@@ -103,6 +130,13 @@ double Voice::generate(double pitchBend) {
       break;
   }
 
+  if (fadeStep_ > 0.0) {
+    out *= fadeGain_;
+    fadeGain_ -= fadeStep_;
+    if (fadeGain_ <= 0.0) {
+      anyAlive = false;
+    }
+  }
   if (!anyAlive) {
     active_ = false;
   }

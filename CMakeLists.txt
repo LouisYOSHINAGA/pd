@@ -38,6 +38,8 @@ smtg_add_vst3plugin(pd
     controller.cpp
     editor.h
     editor.cpp
+    presetlibrary.h
+    presetlibrary.cpp
     eg.h
     eg.cpp
     voice.h

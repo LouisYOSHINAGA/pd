@@ -19,21 +19,33 @@ constexpr double kEpsilon = 0.00001;
 // older streams are still readable.
 constexpr int kStateVersion = 6;
 
-// Oscilloscope: the processor streams frames of recent output samples to the
-// controller as messages; the editor's scope view renders the latest frame.
+// Data the processor sends to the controller from the audio thread goes
+// through the SDK's DataExchangeHandler (one queue each): the audio thread
+// only fills preallocated blocks, and the blocks reach the controller on the
+// UI thread, either through the host's data exchange or through messages the
+// handler sends from a UI-thread timer.
+//
+// Oscilloscope: frames of recent output samples (kScopeFrameSize floats); the
+// editor's scope view renders the latest frame.
 constexpr int kScopeFrameSize = 1024;
-constexpr const char* kScopeMessageId = "oscilloscope";
-constexpr const char* kScopeMessageDataAttr = "data";
+constexpr uint32_t kScopeExchangeId = 1;
 
 // Parameter feedback: a MIDI CC mapped through IMidiMapping is turned into a
 // parameter change by the host and delivered to the processor only; whether
 // the edit controller is told about it is host dependent, and most hosts do
 // not. The processor therefore echoes every parameter change it receives back
-// to the controller, which updates the UI.
-constexpr const char* kParamSyncMessageId = "paramsync";
-constexpr const char* kParamSyncMessageDataAttr = "data";
+// to the controller (ParamSyncBlock), which updates the UI.
+constexpr uint32_t kParamSyncExchangeId = 2;
 
-// One echoed parameter value. Sent as a raw array, so both sides must be
+// Sent by the controller when it loads a preset: every parameter's normalized
+// value (kNumParams raw doubles). The processor applies them as one preset
+// change at the start of a block, as setState does for the host's presets:
+// the old sound is released as it is and the keys still held start again with
+// the new preset (CZ-101 behavior).
+constexpr const char* kPresetMessageId = "preset";
+constexpr const char* kPresetMessageDataAttr = "data";
+
+// One echoed parameter value. Sent as raw memory, so both sides must be
 // built together (they always are: same binary).
 struct ParamSyncEntry {
   int32_t id;
@@ -169,6 +181,12 @@ inline int32_t numParamsOfStateVersion(int32_t version) {
     default: return 0;
   }
 }
+
+// One block of echoed parameter values (see kParamSyncExchangeId).
+struct ParamSyncBlock {
+  uint32_t count;
+  ParamSyncEntry entries[kNumParams];
+};
 
 enum class Waveform {
   kSawTooth,

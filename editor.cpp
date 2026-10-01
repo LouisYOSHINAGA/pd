@@ -1,8 +1,11 @@
 #include "editor.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
 
+#include "vstgui/lib/cdrawmethods.h"
 #include "vstgui/lib/cfileselector.h"
 #include "vstgui/lib/cframe.h"
 #include "vstgui/lib/cgradient.h"
@@ -32,6 +35,23 @@ constexpr int kEditorHeight = 752;
 constexpr int32_t kSkinMenuTag = 100000;
 constexpr int32_t kPresetSaveTag = 100001;
 constexpr int32_t kPresetLoadTag = 100002;
+constexpr int32_t kPageTabTag = 100003;
+constexpr int32_t kPresetFolderTabTag = 100004;
+constexpr int32_t kPresetAddFolderTag = 100005;
+constexpr int32_t kPresetRescanTag = 100006;
+// preset rows: kPresetItemTagBase + index in the shown folder
+constexpr int32_t kPresetItemTagBase = 200000;
+
+// global row (line select .. skin), hidden on the browser page
+constexpr double kGlobalRowTop = 70;
+constexpr double kGlobalRowBottom = 164;
+
+// preset browser list: a fixed table numbered down each column
+constexpr int kPresetColumns = 4;
+constexpr int kPresetRowsPerColumn = 32;
+constexpr int kMaxPresetRows = kPresetColumns * kPresetRowsPerColumn;
+constexpr double kPresetColumnWidth = 252;
+constexpr double kPresetRowHeight = 19;
 
 const PDSkin kSkins[] = {
   {
@@ -103,6 +123,20 @@ SharedPointer<CFontDesc> makeFont(double size, bool bold) {
 
 int clampInt(int value, int low, int high) {
   return value < low ? low : (value > high ? high : value);
+}
+
+SharedPointer<CGradient> solidGradient(const CColor& color) {
+  return VSTGUI::owned(CGradient::create(0, 1, color, color));
+}
+
+// Selects a segment without notifying the listener (setSelectedSegment()
+// does). CSegmentButton syncs its highlight when attached, so call this
+// before adding the button to its parent.
+void selectSegment(CSegmentButton* button, uint32_t index) {
+  size_t count = button->getSegments().size();
+  if (count > 1) {
+    button->setValueNormalized(static_cast<float>(index) / static_cast<float>(count - 1));
+  }
 }
 
 std::string formatParamValue(double normalized, int32 signedRange, int32 displayMax) {
@@ -298,6 +332,67 @@ void OscilloscopeView::draw(CDrawContext* context) {
 }
 
 // ---------------------------------------------------------------------------
+// PresetRow
+
+PresetRow::PresetRow(const CRect& size, IControlListener* listener, int32_t tag, int number,
+                     const std::string& name, const PDSkin& skin)
+    : CControl(size, listener, tag), skin_(skin), font_(makeFont(12, false)) {
+  char text[8];
+  snprintf(text, sizeof(text), "%03d", number);
+  number_ = text;
+  name_ = CDrawMethods::createTruncatedText(CDrawMethods::kTextTruncateTail, UTF8String(name), font_,
+                                            size.getWidth() - kNameLeft - 6)
+              .getString();
+}
+
+void PresetRow::setCurrent(bool current) {
+  if (current != current_) {
+    current_ = current;
+    invalid();
+  }
+}
+
+void PresetRow::draw(CDrawContext* context) {
+  const CRect r = getViewSize();
+  if (current_ || hover_) {
+    context->setFillColor(current_ ? skin_.accent : skin_.control);
+    context->drawRect(r, kDrawFilled);
+  }
+  context->setFont(font_);
+  context->setFontColor(current_ ? skin_.accentText : skin_.textDim);
+  context->drawString(number_.c_str(), CRect(r.left, r.top, r.left + kNameLeft - 8, r.bottom),
+                      kRightText);
+  context->setFontColor(current_ ? skin_.accentText : skin_.text);
+  context->drawString(name_.c_str(), CRect(r.left + kNameLeft, r.top, r.right - 6, r.bottom),
+                      kLeftText);
+  setDirty(false);
+}
+
+CMouseEventResult PresetRow::onMouseDown(CPoint& where, const CButtonState& buttons) {
+  if (!buttons.isLeftButton()) {
+    return kMouseEventNotHandled;
+  }
+  beginEdit();
+  setValue(1.f);
+  valueChanged();
+  setValue(0.f);
+  endEdit();
+  return kMouseDownEventHandledButDontNeedMovedOrUpEvents;
+}
+
+CMouseEventResult PresetRow::onMouseEntered(CPoint& where, const CButtonState& buttons) {
+  hover_ = true;
+  invalid();
+  return kMouseEventHandled;
+}
+
+CMouseEventResult PresetRow::onMouseExited(CPoint& where, const CButtonState& buttons) {
+  hover_ = false;
+  invalid();
+  return kMouseEventHandled;
+}
+
+// ---------------------------------------------------------------------------
 // PDEditor
 
 PDEditor::PDEditor(void* controller) : VSTGUIEditor(controller) {
@@ -377,6 +472,13 @@ void PDEditor::addMenu(CViewContainer* parent, const CRect& rect, ParamID tag,
 
 void PDEditor::addSegmentButton(CViewContainer* parent, const CRect& rect, ParamID tag,
                                 const std::vector<std::string>& segments) {
+  CSegmentButton* button = createSegmentButton(rect, tag, segments);
+  parent->addView(button);
+  bindings_[tag] = Binding{button, 0, nullptr, 0, 99};
+}
+
+CSegmentButton* PDEditor::createSegmentButton(const CRect& rect, int32_t tag,
+                                              const std::vector<std::string>& segments) {
   CSegmentButton* button = new CSegmentButton(rect, this, tag);
   for (const std::string& name : segments) {
     CSegmentButton::Segment segment;
@@ -389,14 +491,13 @@ void PDEditor::addSegmentButton(CViewContainer* parent, const CRect& rect, Param
   button->setFrameColor(skin().controlFrame);
   button->setFrameWidth(1.0);
   button->setRoundRadius(4.0);
-  button->setGradient(CGradient::create(0, 1, skin().control, skin().control));
-  button->setGradientHighlighted(CGradient::create(0, 1, skin().accent, skin().accent));
-  parent->addView(button);
-  bindings_[tag] = Binding{button, 0, nullptr, 0, 99};
+  button->setGradient(solidGradient(skin().control));
+  button->setGradientHighlighted(solidGradient(skin().accent));
+  return button;
 }
 
-void PDEditor::addTextButton(CViewContainer* parent, const CRect& rect, int32_t tag,
-                             const char* title) {
+CTextButton* PDEditor::addTextButton(CViewContainer* parent, const CRect& rect, int32_t tag,
+                                     const char* title) {
   CTextButton* button = new CTextButton(rect, this, tag, title, CTextButton::kKickStyle);
   button->setFont(makeFont(12, true));
   button->setTextColor(skin().text);
@@ -404,9 +505,10 @@ void PDEditor::addTextButton(CViewContainer* parent, const CRect& rect, int32_t 
   button->setFrameColor(skin().controlFrame);
   button->setFrameColorHighlighted(skin().controlFrame);
   button->setRoundRadius(3.0);
-  button->setGradient(CGradient::create(0, 1, skin().control, skin().control));
-  button->setGradientHighlighted(CGradient::create(0, 1, skin().accent, skin().accent));
+  button->setGradient(solidGradient(skin().control));
+  button->setGradientHighlighted(solidGradient(skin().accent));
   parent->addView(button);
+  return button;
 }
 
 void PDEditor::attachValueLabel(CViewContainer* parent, const CRect& rect, ParamID tag,
@@ -465,12 +567,18 @@ void PDEditor::refreshValueLabel(ParamID tag, ParamValue value) {
 
 void PDEditor::buildHeader(CFrame* frame) {
   addLabel(frame, CRect(24, 8, 120, 56), "PD", skin().text, 36, true);
-  addLabel(frame, CRect(126, 10, 470, 26), "CZ SERIES TRIBUTE", skin().accent, 11, true);
-  addLabel(frame, CRect(126, 27, 470, 44), "PHASE DISTORTION SYNTHESIZER", skin().textDim, 12);
+  addLabel(frame, CRect(126, 10, 336, 26), "CZ SERIES TRIBUTE", skin().accent, 11, true);
+  addLabel(frame, CRect(126, 27, 336, 44), "PHASE DISTORTION SYNTHESIZER", skin().textDim, 12);
 
-  addLabel(frame, CRect(490, 10, 610, 24), "PRESET", skin().textDim, 11, true);
-  addTextButton(frame, CRect(490, 27, 548, 51), kPresetLoadTag, "LOAD");
-  addTextButton(frame, CRect(556, 27, 614, 51), kPresetSaveTag, "SAVE");
+  // current preset name, line editor / preset browser switch
+  addLabel(frame, CRect(346, 10, 392, 24), "PRESET", skin().textDim, 11, true);
+  presetNameLabel_ = addLabel(frame, CRect(392, 9, 614, 25), "", skin().text, 12, true);
+  presetNameLabel_->setTextTruncateMode(CTextLabel::kTruncateTail);
+  CSegmentButton* pages = createSegmentButton(CRect(346, 27, 614, 51), kPageTabTag,
+                                              {"EDIT", "BROWSE"});
+  selectSegment(pages, pdController()->browserState().shown ? 1 : 0);
+  pages->setTooltipText("Line editor / preset browser");
+  frame->addView(pages);
 
   addKnob(frame, CRect(644, 8, 688, 52), kParamVolume, skin().accent, false, "Volume");
   addLabel(frame, CRect(618, 52, 714, 64), "VOLUME", skin().textDim, 10, false, kCenterText);
@@ -481,17 +589,27 @@ void PDEditor::buildHeader(CFrame* frame) {
 }
 
 void PDEditor::buildGlobalRow(CFrame* frame) {
-  addLabel(frame, CRect(24, 76, 170, 90), "LINE SELECT", skin().textDim, 11, true);
-  addSegmentButton(frame, CRect(24, 94, 280, 126), kParamLineSelect,
+  // one container, so that the preset browser can hide the whole row
+  globalRow_ = new CViewContainer(CRect(0, kGlobalRowTop, kEditorWidth, kGlobalRowBottom));
+  globalRow_->setTransparency(true);
+  frame->addView(globalRow_);
+  CViewContainer* row = globalRow_;
+  // editor coordinates -> row coordinates
+  auto at = [](double left, double top, double right, double bottom) {
+    return CRect(left, top - kGlobalRowTop, right, bottom - kGlobalRowTop);
+  };
+
+  addLabel(row, at(24, 76, 170, 90), "LINE SELECT", skin().textDim, 11, true);
+  addSegmentButton(row, at(24, 94, 280, 126), kParamLineSelect,
                    {"1", "2", "1+1'", "1+2'"});
   bindings_[kParamLineSelect].control->setTooltipText(
     "Sounding line configuration (1' / 2' are detuned)"
   );
 
-  addLabel(frame, CRect(310, 76, 420, 90), "KEY ASSIGN", skin().textDim, 11, true);
-  addSegmentButton(frame, CRect(310, 94, 440, 126), kParamMonoPoly, {"POLY", "MONO"});
+  addLabel(row, at(310, 76, 420, 90), "KEY ASSIGN", skin().textDim, 11, true);
+  addSegmentButton(row, at(310, 94, 440, 126), kParamMonoPoly, {"POLY", "MONO"});
 
-  addLabel(frame, CRect(478, 76, 556, 90), "DETUNE", skin().textDim, 11, true);
+  addLabel(row, at(478, 76, 556, 90), "DETUNE", skin().textDim, 11, true);
   const struct {
     ParamID tag;
     int32 range;
@@ -504,26 +622,26 @@ void PDEditor::buildGlobalRow(CFrame* frame) {
   };
   double x = 478;
   for (const auto& detune : detunes) {
-    addKnob(frame, CRect(x, 92, x + 38, 130), detune.tag, skin().eg[1], true, detune.tooltip);
-    addLabel(frame, CRect(x - 10, 131, x + 48, 144), detune.label, skin().textDim, 10, false,
+    addKnob(row, at(x, 92, x + 38, 130), detune.tag, skin().eg[1], true, detune.tooltip);
+    addLabel(row, at(x - 10, 131, x + 48, 144), detune.label, skin().textDim, 10, false,
              kCenterText);
-    attachValueLabel(frame, CRect(x - 10, 144, x + 48, 160), detune.tag, detune.range);
+    attachValueLabel(row, at(x - 10, 144, x + 48, 160), detune.tag, detune.range);
     x += 62;
   }
 
-  addLabel(frame, CRect(690, 76, 790, 90), "OCTAVE", skin().textDim, 11, true);
-  addSegmentButton(frame, CRect(690, 94, 846, 126), kParamOctaveRange, {"-1", "0", "+1"});
+  addLabel(row, at(690, 76, 790, 90), "OCTAVE", skin().textDim, 11, true);
+  addSegmentButton(row, at(690, 94, 846, 126), kParamOctaveRange, {"-1", "0", "+1"});
   bindings_[kParamOctaveRange].control->setTooltipText(
     "Octave range: shifts both lines (key follow follows the shifted note)"
   );
 
-  addLabel(frame, CRect(870, 76, 930, 90), "TUNE", skin().textDim, 11, true);
-  addKnob(frame, CRect(872, 92, 910, 130), kParamMasterTune, skin().eg[1], true,
+  addLabel(row, at(870, 76, 930, 90), "TUNE", skin().textDim, 11, true);
+  addKnob(row, at(872, 92, 910, 130), kParamMasterTune, skin().eg[1], true,
           "Master tune in cents (the recorded CZ-101 plays about +10)");
-  attachValueLabel(frame, CRect(862, 131, 920, 147), kParamMasterTune, kMasterTuneRangeCents);
+  attachValueLabel(row, at(862, 131, 920, 147), kParamMasterTune, kMasterTuneRangeCents);
 
-  addLabel(frame, CRect(940, 76, 1000, 90), "SKIN", skin().textDim, 11, true);
-  COptionMenu* skinMenu = new COptionMenu(CRect(940, 94, 1040, 118), this, kSkinMenuTag);
+  addLabel(row, at(940, 76, 1000, 90), "SKIN", skin().textDim, 11, true);
+  COptionMenu* skinMenu = new COptionMenu(at(940, 94, 1040, 118), this, kSkinMenuTag);
   for (int32 i = 0; i < kNumSkins; i++) {
     skinMenu->addEntry(kSkins[i].name);
   }
@@ -535,7 +653,7 @@ void PDEditor::buildGlobalRow(CFrame* frame) {
   skinMenu->setStyle(CParamDisplay::kRoundRectStyle);
   skinMenu->setRoundRectRadius(3.0);
   skinMenu->setValue(static_cast<float>(pdController()->getSkinIndex()));
-  frame->addView(skinMenu);
+  row->addView(skinMenu);
 }
 
 void PDEditor::buildLinePanel(CFrame* frame, double x, int32 lineBase, const char* title) {
@@ -544,7 +662,8 @@ void PDEditor::buildLinePanel(CFrame* frame, double x, int32 lineBase, const cha
   frame->addView(panel);
 
   int lineIndex = lineBase == kParamLine1Begin ? 0 : 1;
-  lineTitles_[lineIndex] = addLabel(panel, CRect(12, 4, 186, 24), title, skin().accent, 14, true);
+  linePanels_[lineIndex] = panel;
+  lineTitles_[lineIndex] =addLabel(panel, CRect(12, 4, 186, 24), title, skin().accent, 14, true);
 
   // waveform selectors
   addLabel(panel, CRect(190, 7, 258, 21), "WAVE 1st", skin().textDim, 11);
@@ -637,12 +756,170 @@ void PDEditor::buildLinePanel(CFrame* frame, double x, int32 lineBase, const cha
   }
 }
 
+void PDEditor::buildPresetBrowser(CFrame* frame) {
+  // takes the place of the global row and both line panels
+  browserPanel_ = new CViewContainer(CRect(8, 72, 1040, 747));
+  browserPanel_->setBackgroundColor(skin().panel);
+  frame->addView(browserPanel_);
+
+  PDController* controller = pdController();
+  const std::vector<PresetFolder>& folders = controller->presetLibrary().folders();
+  int32& folderIndex = controller->browserState().folderIndex;
+  folderIndex = folders.empty() ? 0 : clampInt(folderIndex, 0, static_cast<int>(folders.size()) - 1);
+
+  // one tab per folder
+  if (!folders.empty()) {
+    std::vector<std::string> names;
+    for (const PresetFolder& folder : folders) {
+      names.push_back(folder.name);
+    }
+    CCoord tabWidth = std::min(160.0, 668.0 / folders.size());
+    CSegmentButton* tabs = createSegmentButton(
+      CRect(12, 8, 12 + tabWidth * folders.size(), 34), kPresetFolderTabTag, names
+    );
+    tabs->setFont(makeFont(12, true));
+    tabs->setTextTruncateMode(CDrawMethods::kTextTruncateTail);
+    selectSegment(tabs, static_cast<uint32_t>(folderIndex));
+    browserPanel_->addView(tabs);
+  }
+
+  addTextButton(browserPanel_, CRect(696, 9, 754, 33), kPresetLoadTag, "LOAD");
+  addTextButton(browserPanel_, CRect(762, 9, 820, 33), kPresetSaveTag, "SAVE");
+  CTextButton* addFolder = addTextButton(browserPanel_, CRect(836, 9, 934, 33),
+                                         kPresetAddFolderTag, "ADD FOLDER");
+  addFolder->setTooltipText(
+    ("Adds a folder to the list in " + PresetLibrary::rootsFile().u8string()).c_str()
+  );
+  CTextButton* rescan = addTextButton(browserPanel_, CRect(942, 9, 1020, 33), kPresetRescanTag,
+                                      "RESCAN");
+  rescan->setTooltipText("Reads the preset folders again");
+
+  // the rows, then a footer line with the folder and the count
+  presetList_ = new CViewContainer(
+    CRect(12, 44, 12 + kPresetColumns * kPresetColumnWidth, 44 + kPresetRowsPerColumn * kPresetRowHeight + 22)
+  );
+  presetList_->setTransparency(true);
+  browserPanel_->addView(presetList_);
+  fillPresetList();
+}
+
+void PDEditor::fillPresetList() {
+  presetList_->removeAll();
+  presetRows_.clear();
+
+  const CCoord width = presetList_->getViewSize().getWidth();
+  const PresetFolder* folder = shownPresetFolder();
+  if (folder == nullptr) {
+    addLabel(presetList_, CRect(4, 8, width, 24),
+             "No .vstpreset files found. Click ADD FOLDER to add a folder of presets.",
+             skin().textDim, 12);
+    const std::string listFile = "Folder list: " + PresetLibrary::rootsFile().u8string();
+    addLabel(presetList_, CRect(4, 30, width, 46), listFile.c_str(), skin().textDim, 12);
+  } else {
+    // numbered down each column; a folder with more presets shows the first ones
+    const size_t count = std::min(folder->presets.size(), static_cast<size_t>(kMaxPresetRows));
+    for (size_t i = 0; i < count; i++) {
+      CCoord x = (i / kPresetRowsPerColumn) * kPresetColumnWidth;
+      CCoord y = (i % kPresetRowsPerColumn) * kPresetRowHeight;
+      PresetRow* row = new PresetRow(
+        CRect(x, y, x + kPresetColumnWidth, y + kPresetRowHeight), this,
+        kPresetItemTagBase + static_cast<int32_t>(i), static_cast<int>(i + 1),
+        presetDisplayName(folder->presets[i]), skin()
+      );
+      row->setTooltipText(folder->presets[i].u8string().c_str());
+      presetList_->addView(row);
+      presetRows_.push_back(row);
+    }
+
+    const CCoord footerTop = kPresetRowsPerColumn * kPresetRowHeight + 6;
+    CTextLabel* path = addLabel(presetList_, CRect(4, footerTop, width - 200, footerTop + 14),
+                                folder->directory.u8string().c_str(), skin().textDim, 11);
+    path->setTextTruncateMode(CTextLabel::kTruncateHead);
+    char countText[64];
+    if (folder->presets.size() > count) {
+      snprintf(countText, sizeof(countText), "first %zu of %zu presets", count,
+               folder->presets.size());
+    } else {
+      snprintf(countText, sizeof(countText), "%zu presets", count);
+    }
+    addLabel(presetList_, CRect(width - 196, footerTop, width - 4, footerTop + 14), countText,
+             skin().textDim, 11, false, kRightText);
+  }
+  presetList_->invalid();
+  currentPresetChanged();
+}
+
+const PresetFolder* PDEditor::shownPresetFolder() {
+  const std::vector<PresetFolder>& folders = pdController()->presetLibrary().folders();
+  int32 index = pdController()->browserState().folderIndex;
+  return 0 <= index && index < static_cast<int32>(folders.size()) ? &folders[index] : nullptr;
+}
+
+void PDEditor::showBrowser(bool shown) {
+  pdController()->browserState().shown = shown;
+  if (globalRow_ != nullptr) {
+    globalRow_->setVisible(!shown);
+  }
+  for (CViewContainer* panel : linePanels_) {
+    if (panel != nullptr) {
+      panel->setVisible(!shown);
+    }
+  }
+  if (browserPanel_ != nullptr) {
+    browserPanel_->setVisible(shown);
+  }
+}
+
+void PDEditor::currentPresetChanged() {
+  const std::filesystem::path& current = pdController()->getCurrentPresetPath();
+  if (presetNameLabel_ != nullptr) {
+    presetNameLabel_->setText(current.empty() ? "" : presetDisplayName(current).c_str());
+    presetNameLabel_->setTooltipText(current.u8string().c_str());
+    presetNameLabel_->invalid();
+  }
+
+  const PresetFolder* folder = shownPresetFolder();
+  for (size_t i = 0; i < presetRows_.size(); i++) {
+    presetRows_[i]->setCurrent(folder != nullptr && isSamePath(folder->presets[i], current));
+  }
+}
+
+void PDEditor::presetFoldersChanged() {
+  rebuildUiLater();
+}
+
+void PDEditor::onPresetClicked(size_t index) {
+  const PresetFolder* folder = shownPresetFolder();
+  if (folder != nullptr && index < folder->presets.size()) {
+    // highlighted through currentPresetChanged() once loaded
+    pdController()->loadPresetFile(folder->presets[index]);
+  }
+}
+
+void PDEditor::onAddPresetFolder() {
+  CNewFileSelector* selector = CNewFileSelector::create(frame,
+                                                        CNewFileSelector::kSelectDirectory);
+  if (selector == nullptr) {
+    return;
+  }
+  selector->setTitle("Add Preset Folder");
+  PDController* controller = pdController();
+  selector->run([controller](CNewFileSelector* sel) {
+    if (sel->getNumSelectedFiles() > 0) {
+      controller->addPresetFolder(std::filesystem::u8path(sel->getSelectedFile(0)));
+    }
+  });
+  selector->forget();
+}
+
 void PDEditor::buildUi() {
   frame->setBackgroundColor(skin().bg);
   buildHeader(frame);
   buildGlobalRow(frame);
   buildLinePanel(frame, 8, kParamLine1Begin, "LINE 1");
   buildLinePanel(frame, 528, kParamLine2Begin, "LINE 2");
+  buildPresetBrowser(frame);
+  showBrowser(pdController()->browserState().shown);
 }
 
 void PDEditor::restyleLineTitles() {
@@ -681,13 +958,32 @@ void PDEditor::rebuildUi() {
     return;
   }
   frame->removeAll();
+  forgetViews();
+  buildUi();
+  syncAllControls();
+  frame->invalid();
+}
+
+void PDEditor::rebuildUiLater() {
+  if (frame == nullptr) {
+    return;
+  }
+  if (!frame->doAfterEventProcessing([this]() { rebuildUi(); })) {
+    rebuildUi();  // not inside an event: nothing is using the views
+  }
+}
+
+void PDEditor::forgetViews() {
   bindings_.clear();
   strips_.clear();
   stripByStyleTag_.clear();
   lineTitles_ = {};
-  buildUi();
-  syncAllControls();
-  frame->invalid();
+  globalRow_ = nullptr;
+  linePanels_ = {};
+  browserPanel_ = nullptr;
+  presetList_ = nullptr;
+  presetRows_.clear();
+  presetNameLabel_ = nullptr;
 }
 
 bool PLUGIN_API PDEditor::open(void* parent, const PlatformType& platformType) {
@@ -711,10 +1007,7 @@ bool PLUGIN_API PDEditor::open(void* parent, const PlatformType& platformType) {
 
 void PLUGIN_API PDEditor::close() {
   pdController()->setActiveEditor(nullptr);
-  bindings_.clear();
-  strips_.clear();
-  stripByStyleTag_.clear();
-  lineTitles_ = {};
+  forgetViews();
   if (frame != nullptr) {
     frame->close();  // closes the platform window and forgets the frame
     frame = nullptr;
@@ -728,10 +1021,14 @@ void PDEditor::onSavePreset() {
   }
   selector->setTitle("Save Preset");
   selector->setDefaultExtension(CFileExtension("VST3 Preset", "vstpreset"));
+  if (const PresetFolder* folder = shownPresetFolder()) {
+    selector->setInitialDirectory(folder->directory.u8string().c_str());
+  }
   PDController* controller = pdController();
   selector->run([controller](CNewFileSelector* sel) {
-    if (sel->getNumSelectedFiles() > 0) {
-      controller->savePresetFile(sel->getSelectedFile(0));
+    if (sel->getNumSelectedFiles() > 0
+        && controller->savePresetFile(std::filesystem::u8path(sel->getSelectedFile(0)))) {
+      controller->rescanPresetFolders();  // lists the new file if saved into a preset folder
     }
   });
   selector->forget();
@@ -744,10 +1041,13 @@ void PDEditor::onLoadPreset() {
   }
   selector->setTitle("Load Preset");
   selector->setDefaultExtension(CFileExtension("VST3 Preset", "vstpreset"));
+  if (const PresetFolder* folder = shownPresetFolder()) {
+    selector->setInitialDirectory(folder->directory.u8string().c_str());
+  }
   PDController* controller = pdController();
   selector->run([controller](CNewFileSelector* sel) {
     if (sel->getNumSelectedFiles() > 0) {
-      controller->loadPresetFile(sel->getSelectedFile(0));
+      controller->loadPresetFile(std::filesystem::u8path(sel->getSelectedFile(0)));
     }
   });
   selector->forget();
@@ -755,6 +1055,35 @@ void PDEditor::onLoadPreset() {
 
 void PDEditor::valueChanged(CControl* control) {
   int32_t tag = control->getTag();
+  if (tag >= kPresetItemTagBase) {
+    // kick buttons report the press and then the release
+    if (control->getValue() > 0.5f) {
+      onPresetClicked(static_cast<size_t>(tag - kPresetItemTagBase));
+    }
+    return;
+  }
+  if (tag == kPageTabTag) {
+    showBrowser(static_cast<CSegmentButton*>(control)->getSelectedSegment() == 1);
+    return;
+  }
+  if (tag == kPresetFolderTabTag) {
+    pdController()->browserState().folderIndex =
+        static_cast<int32>(static_cast<CSegmentButton*>(control)->getSelectedSegment());
+    fillPresetList();
+    return;
+  }
+  if (tag == kPresetAddFolderTag) {
+    if (control->getValue() > 0.5f) {
+      onAddPresetFolder();
+    }
+    return;
+  }
+  if (tag == kPresetRescanTag) {
+    if (control->getValue() > 0.5f) {
+      pdController()->rescanPresetFolders();
+    }
+    return;
+  }
   if (tag == kSkinMenuTag) {
     pdController()->setSkinIndex(static_cast<int32>(control->getValue()));
     rebuildUi();

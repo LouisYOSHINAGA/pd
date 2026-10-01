@@ -35,11 +35,27 @@ class Voice {
   // True while the voice is producing sound (attack through release tail).
   bool isActive() const;
 
+  // True while the voice sounds the given channel/note, held or releasing.
+  bool isPlaying(int channel, int note) const;
+
+  // True while the voice sounds a note whose key has been released.
+  bool isReleasing() const;
+
   // Allocation order counter, used to find the oldest voice to steal.
   uint64_t age() const;
 
+  // A frozen voice keeps the sound it was started with: PDProcessor leaves it
+  // out of parameter updates (the release of a preset switched away from)
+  // and brings it up to date before it plays a new note.
+  bool isFrozen() const;
+  void setFrozen(bool frozen);
+
   void noteOn(int channel, int note, uint64_t age);
   void noteOff();
+  // Fades the sound out linearly over `ticks` internal samples and then frees
+  // the voice: what a voice taken over for a new note was sounding, which
+  // would click if it were cut.
+  void fadeOut(int ticks);
   double generate(double pitchBend);
 
   // Broadcast setters: these settings are shared across all voices.
@@ -86,6 +102,9 @@ class Voice {
   uint64_t age_;
   bool held_;
   bool active_;
+  bool frozen_;
+  double fadeGain_;
+  double fadeStep_;  // gain decrement per tick while fading out, else 0
 };
 
 }  // namespace Vst

@@ -1,7 +1,11 @@
 #include "controller.h"
 
+#include <array>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
+#include <iterator>
+#include <string>
 
 #include "base/source/fstreamer.h"
 #include "pluginterfaces/base/funknown.h"
@@ -291,34 +295,40 @@ tresult PLUGIN_API PDController::notify(IMessage* message) {
     return kInvalidArgument;
   }
 
-  // Parameter values the processor received directly (MIDI CC mapped through
-  // IMidiMapping never reaches the controller by itself).
-  if (strcmp(message->getMessageID(), kParamSyncMessageId) == 0) {
-    const void* data = nullptr;
-    uint32 size = 0;
-    if (message->getAttributes()->getBinary(kParamSyncMessageDataAttr, data, size) == kResultTrue) {
-      const ParamSyncEntry* entries = static_cast<const ParamSyncEntry*>(data);
-      const uint32 numEntries = size / sizeof(ParamSyncEntry);
-      for (uint32 i = 0; i < numEntries; i++) {
-        applyParamFromProcessor(entries[i].id, entries[i].value);
+  // data exchange blocks, when the host has no data exchange of its own
+  if (dataExchange_.onMessage(message)) {
+    return kResultTrue;
+  }
+  return EditController::notify(message);
+}
+
+void PLUGIN_API PDController::queueOpened(DataExchangeUserContextID userContextID,
+                                          uint32 blockSize, TBool& dispatchOnBackgroundThread) {
+  dispatchOnBackgroundThread = false;  // the parameter echoes update the UI
+}
+
+void PLUGIN_API PDController::queueClosed(DataExchangeUserContextID userContextID) {
+}
+
+void PLUGIN_API PDController::onDataExchangeBlocksReceived(DataExchangeUserContextID userContextID,
+                                                           uint32 numBlocks,
+                                                           DataExchangeBlock* blocks,
+                                                           TBool onBackgroundThread) {
+  for (uint32 i = 0; i < numBlocks; i++) {
+    const DataExchangeBlock& block = blocks[i];
+    if (userContextID == kScopeExchangeId && block.size >= sizeof(float) * kScopeFrameSize) {
+      std::lock_guard<std::mutex> lock(scopeMutex_);
+      const float* samples = static_cast<const float*>(block.data);
+      scopeData_.assign(samples, samples + kScopeFrameSize);
+    } else if (userContextID == kParamSyncExchangeId && block.size >= sizeof(ParamSyncBlock)) {
+      // Parameter values the processor received directly (MIDI CC mapped
+      // through IMidiMapping never reaches the controller by itself).
+      const ParamSyncBlock* sync = static_cast<const ParamSyncBlock*>(block.data);
+      for (uint32 entry = 0; entry < sync->count && entry < kNumParams; entry++) {
+        applyParamFromProcessor(sync->entries[entry].id, sync->entries[entry].value);
       }
     }
-    return kResultTrue;
   }
-
-  if (strcmp(message->getMessageID(), kScopeMessageId) == 0) {
-    const void* data = nullptr;
-    uint32 size = 0;
-    if (message->getAttributes()->getBinary(kScopeMessageDataAttr, data, size) == kResultTrue) {
-      std::lock_guard<std::mutex> lock(scopeMutex_);
-      const float* samples = static_cast<const float*>(data);
-      const size_t numSamples = size / sizeof(float);
-      scopeData_.assign(samples, samples + numSamples);
-    }
-    return kResultTrue;
-  }
-
-  return EditController::notify(message);
 }
 
 void PDController::copyScopeData(std::vector<float>& out) {
@@ -330,6 +340,10 @@ tresult PLUGIN_API PDController::setComponentState(IBStream* state) {
   if (state == nullptr) {
     return kResultFalse;
   }
+  // A state restored by the host (e.g. its own preset browser) is no longer
+  // the current preset file; on project load, setState() restores the path
+  // right after this. loadPresetFile() sets it again after restoring.
+  setCurrentPresetPath({});
 
   IBStreamer streamer(state, kLittleEndian);
   int32 version;
@@ -356,9 +370,11 @@ tresult PLUGIN_API PDController::setComponentState(IBStream* state) {
   return kResultTrue;
 }
 
-// Version tag of the controller's own (UI preference) state stream.
+// Version tag of the controller's own (UI) state stream.
+// v2 appended the current preset file (UTF-8, length-prefixed).
 namespace {
-constexpr int32 kUiStateVersion = 1;
+constexpr int32 kUiStateVersion = 2;
+constexpr int32 kMaxPresetPathSize = 32768;
 }  // namespace
 
 tresult PLUGIN_API PDController::getState(IBStream* state) {
@@ -366,7 +382,11 @@ tresult PLUGIN_API PDController::getState(IBStream* state) {
     return kResultFalse;
   }
   IBStreamer streamer(state, kLittleEndian);
-  if (!streamer.writeInt32(kUiStateVersion) || !streamer.writeInt32(skinIndex_)) {
+  const std::string presetPath = currentPresetPath_.u8string();
+  const int32 presetPathSize = static_cast<int32>(presetPath.size());
+  if (!streamer.writeInt32(kUiStateVersion) || !streamer.writeInt32(skinIndex_)
+      || !streamer.writeInt32(presetPathSize)
+      || streamer.writeRaw(presetPath.data(), presetPathSize) != presetPathSize) {
     return kResultFalse;
   }
   return kResultTrue;
@@ -379,11 +399,23 @@ tresult PLUGIN_API PDController::setState(IBStream* state) {
   IBStreamer streamer(state, kLittleEndian);
   int32 version;
   int32 skinIndex;
-  if (!streamer.readInt32(version) || version != kUiStateVersion
+  if (!streamer.readInt32(version) || version < 1 || kUiStateVersion < version
       || !streamer.readInt32(skinIndex)) {
     return kResultFalse;
   }
   skinIndex_ = skinIndex;
+
+  if (version >= 2) {
+    int32 size;
+    if (!streamer.readInt32(size) || size < 0 || kMaxPresetPathSize < size) {
+      return kResultFalse;
+    }
+    std::string presetPath(static_cast<size_t>(size), '\0');
+    if (streamer.readRaw(presetPath.data(), size) != size) {
+      return kResultFalse;
+    }
+    setCurrentPresetPath(std::filesystem::u8path(presetPath));
+  }
   return kResultTrue;
 }
 
@@ -395,12 +427,10 @@ int32 PDController::getSkinIndex() const {
   return skinIndex_;
 }
 
-bool PDController::savePresetFile(const char* path) {
-  IBStream* file = FileStream::open(path, "wb");
-  if (file == nullptr) {
-    return false;
-  }
+// Preset files are read and written through std::fstream rather than the
+// SDK's FileStream, whose fopen() cannot open non-ASCII paths on Windows.
 
+bool PDController::savePresetFile(const std::filesystem::path& path) {
   // synthesize the processor state stream from the current parameter values
   MemoryStream componentState;
   IBStreamer streamer(&componentState, kLittleEndian);
@@ -408,29 +438,54 @@ bool PDController::savePresetFile(const char* path) {
   for (int32 paramId = 0; ok && paramId < kNumParams; paramId++) {
     ok = streamer.writeDouble(getParamNormalized(paramId));
   }
+  MemoryStream preset;
   if (ok) {
     componentState.seek(0, IBStream::kIBSeekSet, nullptr);
-    ok = PresetFile::savePreset(file, ProcessorUID, &componentState);
+    ok = PresetFile::savePreset(&preset, ProcessorUID, &componentState);
   }
-  file->release();
-  return ok;
-}
-
-bool PDController::loadPresetFile(const char* path) {
-  IBStream* file = FileStream::open(path, "rb");
-  if (file == nullptr) {
-    return false;
-  }
-
-  PresetFile presetFile(file);
-  bool ok = presetFile.readChunkList()
-         && presetFile.restoreComponentState(static_cast<IEditController*>(this));
-  file->release();
   if (!ok) {
     return false;
   }
 
-  // propagate the restored values to the host and the processor
+  std::ofstream file(path, std::ios::binary);
+  file.write(preset.getData(), static_cast<std::streamsize>(preset.getSize()));
+  if (!file) {
+    return false;
+  }
+  setCurrentPresetPath(path);
+  return true;
+}
+
+bool PDController::loadPresetFile(std::filesystem::path path) {
+  std::ifstream file(path, std::ios::binary);
+  if (!file) {
+    return false;
+  }
+  std::vector<char> bytes((std::istreambuf_iterator<char>(file)),
+                          std::istreambuf_iterator<char>());
+  MemoryStream stream(bytes.data(), static_cast<TSize>(bytes.size()));
+
+  PresetFile presetFile(&stream);
+  if (!presetFile.readChunkList()
+      || !presetFile.restoreComponentState(static_cast<IEditController*>(this))) {
+    return false;
+  }
+  setCurrentPresetPath(path);
+
+  // the processor switches to the whole preset at once (see kPresetMessageId)
+  std::array<ParamValue, kNumParams> values;
+  for (int32 paramId = 0; paramId < kNumParams; paramId++) {
+    values[paramId] = getParamNormalized(paramId);
+  }
+  if (IMessage* message = allocateMessage()) {
+    message->setMessageID(kPresetMessageId);
+    message->getAttributes()->setBinary(kPresetMessageDataAttr, values.data(),
+                                        static_cast<uint32>(sizeof(values)));
+    sendMessage(message);
+    message->release();
+  }
+
+  // report the restored values to the host (the processor already has them)
   for (int32 paramId = 0; paramId < kNumParams; paramId++) {
     ParamValue value = getParamNormalized(paramId);
     beginEdit(paramId);
@@ -438,6 +493,50 @@ bool PDController::loadPresetFile(const char* path) {
     endEdit(paramId);
   }
   return true;
+}
+
+const std::filesystem::path& PDController::getCurrentPresetPath() const {
+  return currentPresetPath_;
+}
+
+PresetLibrary& PDController::presetLibrary() {
+  return presetLibrary_;
+}
+
+PDController::BrowserState& PDController::browserState() {
+  return browserState_;
+}
+
+void PDController::rescanPresetFolders() {
+  presetLibrary_.rescan();
+  if (activeEditor_ != nullptr) {
+    activeEditor_->presetFoldersChanged();
+  }
+}
+
+bool PDController::addPresetFolder(const std::filesystem::path& root) {
+  if (!presetLibrary_.addRoot(root)) {
+    return false;
+  }
+  const std::vector<PresetFolder>& folders = presetLibrary_.folders();
+  for (size_t i = 0; i < folders.size(); i++) {
+    const std::filesystem::path& directory = folders[i].directory;
+    if (isSamePath(directory, root) || isSamePath(directory.parent_path(), root)) {
+      browserState_.folderIndex = static_cast<int32>(i);
+      break;
+    }
+  }
+  if (activeEditor_ != nullptr) {
+    activeEditor_->presetFoldersChanged();
+  }
+  return true;
+}
+
+void PDController::setCurrentPresetPath(const std::filesystem::path& path) {
+  currentPresetPath_ = path;
+  if (activeEditor_ != nullptr) {
+    activeEditor_->currentPresetChanged();
+  }
 }
 
 namespace {
