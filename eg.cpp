@@ -289,7 +289,9 @@ void EG::restart() {
     return;  // only the first note-off counts
   }
   released_ = true;
-  if (step_ == kEgStepSustain) {
+  // The sustain/end points may have changed while the note was held (e.g. a
+  // preset change); the step after the sustain step must not pass the end.
+  if (step_ == kEgStepSustain && sustainPoint_ < endPoint_) {
     enter(sustainPoint_ + 1);  // release: continue after the sustain step
   } else {
     // Released before the sustain point was reached, or no sustain point:
@@ -301,6 +303,8 @@ void EG::restart() {
 void EG::proceed() {
   if (step_ == endPoint_) {
     halt();
+  } else if (step_ > endPoint_) {
+    enter(endPoint_);  // the end point was moved below the running step
   } else if (step_ == sustainPoint_) {
     dLevel_ = 0.0;
     step_ = kEgStepSustain;
