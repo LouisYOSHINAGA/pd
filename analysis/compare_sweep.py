@@ -2,7 +2,7 @@
 
 The sweep patch runs 22 rate codes faster than the factory presets at the same
 panel rate (presumably its key follow setting), so each sweep rate is rendered
-with the VST rate that yields the same chip rate code: 119*r'/99 + 2 = 119*r/99 + 24.
+with the VST rate that yields the same chip rate code: 119*r'/99 = 119*r/99 + 22.
 """
 import numpy as np, os, subprocess
 from dcasweep import sweep_files, takes

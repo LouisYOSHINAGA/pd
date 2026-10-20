@@ -41,7 +41,7 @@ class EG {
   int8 step_;          // running step index, or kEgStepHalt / kEgStepSustain
   bool released_;      // true after note-off
   int8 keyFollow_;     // key follow value 0..9
-  double speedFactor_; // DCA key follow speed factor of the current note
+  int32 rateCodeOffset_; // DCA key follow: rate codes added to every step
   int32 levelOffset_;  // DCW key follow: level codes subtracted from the targets
   double level_;       // accumulator, in the output unit of the EG kind
   double dLevel_;      // accumulator change per internal tick (signed)

@@ -2,9 +2,11 @@
 (+12 semitones) for r = 10..60, and (20, 32) (+4 semitones).
 
 The pitch is tracked by interpolated zero crossings; the glide is linear in semitones, and
-its speed is compared with the chip EG: step(n) = (8 + (n & 7)) << (n >> 3) per 35 kHz tick
-with n = 127 * r / 99 (Casio's sysex rate value for the DCO) and 14 * 2^16 units per
-semitone (eg.cpp). The old model (n = 119 * r / 99 + 2, 12 * 2^16) is shown for reference.
+its speed is compared with the chip EG: step(n) = (8 + (n & 7)) << (n >> 3) per 35 kHz tick,
+plus half a mantissa LSB from n = 72 up (the CZ book's rate table; rate 60 is 5% faster than
+without it), with n = 127 * r / 99 (Casio's sysex rate value for the DCO) and 14 * 2^16 units
+per semitone (eg.cpp). The old model (n = 119 * r / 99 + 2, 12 * 2^16, no half LSB) is shown
+for reference.
 """
 import numpy as np, os, re
 from dcwkf import load, REC
@@ -14,8 +16,9 @@ D = os.path.join(REC, '20260927_5')
 BASE = 523.25*2**(9.6/1200)      # key 72; this CZ-101 plays 9.6 cents sharp on every key
 TICK = 8.96e6/256
 
-def step(n):
-    return (8 + n % 8) << (n // 8)
+def step(n, half_lsb=True):
+    s = (8 + n % 8) << (n // 8)
+    return s + (1 << (n // 8 - 1)) if half_lsb and n >= 72 else s
 
 def takes(name):
     """(t, semitones) per take, over the part where the note sounds."""
@@ -52,4 +55,4 @@ if __name__ == '__main__':
         n = 127*r//99
         print('  %3d  %3d  |  %6.2f  | %s | %3d %7.2f  | %7.2f'
               % (r, level, final, ' '.join('%7.2f' % s for s in slopes), n, step(n)*TICK/(14*65536),
-                 step(119*r//99 + 2)*TICK/(12*65536)))
+                 step(119*r//99 + 2, False)*TICK/(12*65536)))

@@ -7,8 +7,9 @@
 - `czenvrec/20260922/`: DCA の rate / level sweep（DCW, DCO は level 0。note on 10 s / 周期 13 s）
 - `czenvrec/20260925/`: 追加確認（Synth Bass の rate 再入力、初期化パッチの rate 24 attack と設定の入れ直し）→ `check_20260925.py`
 - `czenvrec/20260927/`: sustain 到達前の離鍵（到達前・sustain なしは最終 step へ直行）→ `check_20260927.py`
-- `czenvrec/20260926_2/`: rate 36 での Key Follow（attack/release とも同倍率）と Octave Range +1 の確認（Key Follow は鳴っている音程で決まる）→ `check_20260926_2.py`
-- `czenvrec/20260926/`: DCA Key Follow 0〜9 × 鍵 C1〜C8（24〜108）→ `keyfollow2.py`（attack/release の rate code、速度比、sustain）、`keyfollow_model.py`（速度比 F = (12+k)/12 の補間モデルと検証、k の表 `dca_keyfollow_k.csv` を生成）
+- `czenvrec/20260926_2/`: rate 36 での Key Follow（attack/release とも同じだけ速くなる。KF 9・C6 の速度比は rate 24 の 6.72 ではなく 6.56 で、倍率ではなく rate code への整数の加算に合う）と Octave Range +1 の確認（Key Follow は鳴っている音程で決まる）→ `check_20260926_2.py`
+- `czenvrec/20260926/`: DCA Key Follow 0〜9 × 鍵 C1〜C8（24〜108）→ `keyfollow2.py`（attack/release の rate code、速度比、sustain）、`keyfollow_model.py`（Key Follow は書籍の rate code に整数 x を足す。全測定点で x は整数から 0.07 以内。鍵の間は x を直線補間し、x の表 `dca_keyfollow_code.csv` = `eg.cpp` の `kDcaKeyFollowCode` を生成）
+  - `keyfollow2.py` などが出す rate code は旧モデルの単位（1 code = 2^18、半 LSB なし、rate 24 = 30）。書籍の単位では rate 24 = code 28 で、旧単位の 29.71 に当たる（実機 29.80、同じ測定の VST も 29.80）。
   - 20260922 と 20260925 B/C の初期化パッチは表示と内部状態が食い違っており、DCA が 22 code 速く、音色も Resonance III 相当だった。
     設定を入れ直した D はプリセットと同じ速度則（rate 24 → code 30）・純正弦波になる。
 - `czenvrec/20260927_2/`: DCW Key Follow × 鍵（DCW rate 24 で 99 まで上昇）→ `dcwkf.py`（倍音照合による dcw(t)）、`dcwkf2.py`（上昇が止まる level code）、`dcwkf_presets.py`（モデルをプリセットで確認）
@@ -18,7 +19,7 @@
   - `dcwkf_model.py`: 全測定点から KF の引き算表 `dcw_keyfollow_s.csv`（KF × 鍵 36〜96、`eg.cpp` の `kDcwKeyFollowS`）と上限の点（`kDcwLimitCode`）を作る。引き算は s(KF) × g(鍵) の形で全 60 点に 1.5 code 以内で合う。
 - `czenvrec/20260928/`, `20260928_2/`: KF 3, 5, 7, 9 × 鍵 60〜90（DCW level 50）、KF 9 × 鍵 90, 93（level 99）、KF 0 × 鍵 60〜93（rate 30, level 99）→ `check_20260928.py`（KF 3 の "note_69" は実際には鍵 66）。上限は C4 から既にかかる（C4 で 123.9 code）。
 - 音程: この CZ-101 はどの鍵でも約 +9.6 cent 高い（A4 ≈ 442.4 Hz、20260927_2 の KF 0 で鍵 36〜96 を測定、ばらつき ±0.5 cent）。これを差し引くと DCO level 66 / 32 はちょうど +12.00 / +4.00 半音。
-- `czenvrec/20260927_5/`: DCO rate 10〜60（level 66 = +12 半音）と level 32（+4 半音）、鍵 72、DCW 0 → `check_20260927_5.py`（glide は半音に対して直線、code = 127r/99・1 半音 14 × 2^16 単位で rate 10〜50 が 0.5% 以内、rate 60 は +5%）
+- `czenvrec/20260927_5/`: DCO rate 10〜60（level 66 = +12 半音）と level 32（+4 半音）、鍵 72、DCW 0 → `check_20260927_5.py`（glide は半音に対して直線、code = 127r/99・1 半音 14 × 2^16 単位で rate 10〜50 が 0.5% 以内。rate 60 は半 LSB なしだと +5% で、code 72 以上で step に半 LSB を足す書籍の表のとおりにすると 1% 以内）
 
 ## 参考資料
 - Michael Rickard, "Casio CZ Envelopes"（非公式、[Web Archive](https://web.archive.org/web/20201111190255/https://www.kasploosh.com/cz/13466-envelopes/)）の PDF "Casio CZ MIDI Specification - Envelope Data"：パネル値 α から sysex 値 β への変換（整数演算）。
@@ -27,8 +28,13 @@
   | DCO | β = 127α/99 | α ≤ 63: β = α、α > 63: β = α + 4 |
   | DCW | β = 119α/99 + 8 | β = 127α/99 |
   | DCA | β = 119α/99 | α = 0: 0、それ以外 β = α + 28 |
-  - 録音から求めたモデルとの対応：DCA level は一致。DCA rate はチップの code = β + 2。DCW rate は DCA + 8 だが、+8 code はちょうど 2 倍速なので、DCW の内部単位が DCA の半分なら録音と一致する。DCO level の半音換算（β < 64: β/8、β ≥ 68: 2(β - 64)）とも矛盾しない。DCW level は切り捨て（`eg.cpp` もこれに合わせた）。
+  - 録音から求めたモデルとの対応：DCA level は一致。DCA rate は当初チップの code = β + 2（1 code = 2^18 単位）としていたが、下の書籍の表と録音から code = β（1 code = 14 × 2^14 単位）が正しい。DCW rate は DCA + 8 だが、+8 code はちょうど 2 倍速なので、DCW の内部単位が DCA の半分なら録音と一致する。DCO level の半音換算（β < 64: β/8、β ≥ 68: 2(β - 64)）とも矛盾しない。DCW level は切り捨て（`eg.cpp` もこれに合わせた）。
   - DCO rate は 127/99 倍で、DCA/DCW の 119/99 倍とは rate の間隔が異なる。20260927_5 の録音で、チップの code = β（オフセットなし）、1 半音 = 14 × 2^16 単位と確認した（`eg.cpp` も変更）。
+- CZ の解説書（chapter II "pro-data" pp.96–99「エンベロープ・レベル早見表」「エンベロープのRATEを時間に変えよう」）：level と rate の変換表、time [ms] = |前の step の level 値 − level 値| ÷ R × n × C（C = DCO 0.2、DCW 0.1、DCA 0.05）→ `book_tables.py`
+  - level の表（DCO の cent、DCW・DCA の変換値、DCA は 1 段 0.5 dB）は `eg.cpp` と全項目で一致。
+  - rate の表は全 300 項目が一つの式で再現できる（誤植 1 か所：DCA rate 81 の 142 は 152）。code は上の β のまま（DCA に +2 はない）、step = (8 + (n & 7)) << (n >> 3) に code 72 以上で半 LSB (1 << ((n >> 3) − 1)) が加わり、C はチップの 35 kHz と 1 code = DCO 14 × 2^16（半音）、DCW 14 × 2^15、DCA 14 × 2^14 単位にちょうど当たる。`eg.cpp` をこれに合わせた（16 音色の DCA 包絡の誤差 0.50 → 0.43 dB、20260922 の rate 24 の attack 0.925 → 0.973 s（実機 0.972 s））。
+  - note off 後の rate 上限（旧単位の code 104）は書籍の単位で code 102（DCW は 110）とした。
+  - DCW level ごとの「強調される倍音」の表は耳で聴いた目安（書籍自身の断り書き）なので使っていない。level 92〜99 で 15 倍音とあり、`pd.h` の共振の倍率（DCW 1.0 で ×14.3、未測定）よりやや高い。
 
 必要なもの: Python 3 + numpy / scipy / matplotlib、録音 (`czenvrec/*.wav`, `CZ101PresetParam .csv`)。
 出力 (`plots/`, `render/`) は git 管理外。
@@ -36,6 +42,7 @@
 ## 推定手順
 | スクリプト | 内容 |
 |---|---|
+| `book_tables.py` | 書籍の rate 表を書き写したものと、`eg.cpp` と同じ式・単位の照合（誤植 1 か所以外すべて一致） |
 | `rmsenv.py` | 各 take を位置合わせし、RMS 包絡 (dB) を平均。detune による beat は beat 周期の窓で除去 |
 | `czeg.py`, `dcamodel.py`, `fitdca.py` | チップ EG モデル (35 kHz, step=(8+(n&7))<<(n>>3), n=round(1.25*rate)) で DCA 包絡を予測し録音に fit |
 | `volcurve.py` | 減衰中の dB を accumulator 位置に対して描画 (0.495 dB/level code の確認) |
@@ -45,10 +52,10 @@
 | `attack.py` | preset の立ち上がりを 1 ms 精度で測定（上昇も下降と同じ速度則であることの確認） |
 | `compare_attack.py` | 16 音色の立ち上がりを実機と VST で比較（-40 dB から -20/-10/-6/-3/-1 dB までの時間） |
 | `attack_start.py` | 20260922 の遅い attack を音量カーブ込みで fit し、立ち上がりの開始点を推定（level code 0 から開始、dB に対して直線＝振幅は指数的） |
-| `trumpet_attack.py` | Trumpet の最初の DCA 段の速さと開始点を実機と VST で比較（VST が約 7% 速い、どちらも code 0 から） |
+| `trumpet_attack.py` | Trumpet の最初の DCA 段の速さと開始点を実機と VST で比較（VST が約 7% 速い、どちらも code 0 から。rate 則と Key Follow の修正後は約 8% 速い。KF 2・A4 の x = 1 を 0 にすると合うが、Key Follow の測定では A4 で x = 1） |
 | `render_ab.py` | 16 音色の実機録音と VST を同条件・音量合わせで書き出す（`render/ab/`、聴き比べ用、commit しない） |
 | `gate.py` | 実機の発音長（attack 開始 → release 開始）と MIDI の gate の差（note off の反応遅れ、約 +12 ms）の測定 |
-| `fastrms.py` | 1 周期窓 RMS による高速な attack / release の測定（note off 後の rate 上限 code 104 の確認） |
+| `fastrms.py` | 1 周期窓 RMS による高速な attack / release の測定（note off 後の rate 上限の確認。旧単位で code 104、書籍の単位で code 102） |
 | `dcasweep.py`, `volcurve2.py` | sweep 録音の読み込みと、sustain 値・遅い attack からの音量カーブ復元（1/12 octave/code, 下端は -0.5 LSB 相当の落ち込み） |
 
 ## 実装との比較

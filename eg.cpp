@@ -6,17 +6,24 @@
 #include "const.h"
 
 // CZ-101 envelope model, derived from recordings of the 16 factory presets
-// and of DCA/DCW/DCO rate and level sweeps.
+// and of DCA/DCW/DCO rate and level sweeps, and checked against the rate and
+// level tables of a CZ book (chapter II "pro-data", pp. 96-99; see
+// analysis/README.md).
 //
 // Chip side: the envelope accumulator is updated once per chip sample
 // (8.96 MHz / 256 = 35 kHz) by a step taken from a 3-bit mantissa / 4-bit
-// exponent code, step = (8 + (n & 7)) << (n >> 3), and stops at the target.
-// Targets are "level code << 18" for DCA/DCW and "semitones * 14 << 16" for
-// DCO. The CPU maps the panel rate r (0..99) to n = 119 * r / 99 + 2 for
-// DCA/DCW and to n = 127 * r / 99 for DCO (the sysex rate values of Casio's
-// tables; DCO glides at rates 10..50 agree within 0.5%). After note-off n is
-// limited to 104 (step 65536), so even a rate-99 DCA release takes ~14 ms
-// from full level instead of ~3 ms.
+// exponent code n, step = (8 + (n & 7)) << (n >> 3), plus half a mantissa LSB
+// (1 << ((n >> 3) - 1)) from exponent 9 (n >= 72) up, and stops at the
+// target. Targets are "level code * 14 << 14" for DCA, "level code * 14 << 15"
+// for DCW and "semitones * 14 << 16" for DCO. The CPU maps the panel rate r
+// (0..99) to n = 119 * r / 99 for DCA, 119 * r / 99 + 8 for DCW (twice the
+// step on twice the scale, so DCW moves as many level codes per second as
+// DCA) and 127 * r / 99 for DCO (the sysex rate values of Casio's tables).
+// This reproduces the book's rate table (one misprint aside), and the recordings
+// agree: DCO glides at rates 10..60 within 1%, DCA attacks at rates 24 and 36
+// (key follow 0) within 0.1 code. After note-off n is limited to 102 (DCW
+// 110, the same speed; DCO assumed 102), so even a rate-99 DCA release takes
+// ~14 ms from full level instead of ~3 ms.
 //
 // Level encodings (panel level l = 0..99):
 //   DCA: code = l + 28 (l = 0 -> 0). The accumulator drives an exponential
@@ -28,10 +35,11 @@
 //   DCO: l < 64 -> l / 8 semitones, l >= 64 -> 2 * (l - 60) semitones; the
 //        pitch glides linearly in semitones.
 //
-// DCA key follow multiplies every step speed (attack, decay and release) by
-// (12 + k) / 12, where k is an integer depending on the key follow value and
-// the note (see kDcaKeyFollowK); the after-note-off limit applies to the
-// multiplied speed.
+// DCA key follow adds a code depending on the key follow value and the note to
+// the rate code of every step (attack, decay and release; see
+// kDcaKeyFollowCode); the after-note-off limit applies to the raised code.
+// (At rate 24, code 28, this looks like a speed factor (12 + k) / 12 with an
+// integer k, but at rate 36 the speeds follow the code.)
 //
 // DCW key follow leaves the speed alone and subtracts a code depending on the
 // key follow value and the note from every DCW target (see kDcwKeyFollowS;
@@ -45,7 +53,8 @@ namespace Vst {
 namespace {
 
 constexpr double kChipTickRate = 8.96e6 / 256.0;
-constexpr double kDcaDcwUnitScale = 1 << 18;     // chip units per level code
+constexpr double kDcaUnitScale = 14.0 * (1 << 14);  // chip units per level code
+constexpr double kDcwUnitScale = 14.0 * (1 << 15);  // chip units per level code
 constexpr double kDcoUnitScale = 14.0 * (1 << 16);  // chip units per semitone
 constexpr int kVolumeTableSize = 512;             // 9-bit index = code * 4
 constexpr int kVolumeStepsPerOctave = 48;         // 1/12 octave per level code
@@ -53,57 +62,61 @@ constexpr int kVolumeUnityIndex = 127 * 4;        // code 127 = full scale
 constexpr double kVolumeFullScale = 1024.0;       // chip amplitude at full scale
 constexpr int kVolumeSilentBelow = 24;            // code 6: output rounds to 0
 constexpr int32 kMaxPanelValue = 99;
-constexpr int32 kRateCodeOffset = 2;              // DCA/DCW, A4, key follow 0 (presets and a panel-set patch)
+constexpr int32 kDcaRateCodeMax = 119;            // DCA rate code at panel rate 99
+constexpr int32 kDcwRateCodeOffset = 8;           // DCW rate code = DCA rate code + 8
 constexpr int32 kDcoRateCodeMax = 127;            // DCO rate code at panel rate 99
-constexpr int32 kReleaseRateCodeMax = 104;        // fastest rate after note-off
+constexpr int32 kMaxRateCode = 127;               // 7-bit chip rate code (key follow can exceed 119)
+constexpr int32 kStepHalfLsbExponent = 9;         // the step gains half an LSB from here up
+constexpr int32 kReleaseRateCodeMax = 102;        // fastest DCA/DCO rate after note-off
 constexpr int32 kKeyFollowLowestNote = 36;        // C2: the CZ-101 folds MIDI notes into C2..C7
 constexpr int32 kKeyFollowHighestNote = 96;       // C7
 constexpr int32 kKeyFollowNumNotes = kKeyFollowHighestNote - kKeyFollowLowestNote + 1;
 
-// k of the DCA key follow speed factor (12 + k) / 12, per key follow value and
-// note C2..C7, measured on a CZ-101 at C2..C7, A4, A5 and (key follow 9) every
-// note of C4..C6 and A6, interpolated geometrically in between.
-constexpr int16 kDcaKeyFollowK[kNumKeyFollowOptions][kKeyFollowNumNotes] = {
-  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},  // key follow 0
-  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-     0,   0,   0,   0,   0,   0,   0,   0,   0,   1,   1,   1,   1,   1,   1,   1,
-     1,   1,   1,   1,   1,   2,   2,   2,   2,   2,   2,   3,   3},  // key follow 1
-  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,   1,   1,
-     1,   1,   1,   1,   1,   1,   1,   1,   2,   2,   2,   2,   3,   3,   3,   4,
-     4,   4,   5,   5,   6,   6,   7,   8,   8,   9,  10,  11,  12},  // key follow 2
-  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-     0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   2,   2,
-     2,   2,   2,   2,   2,   2,   3,   3,   3,   4,   4,   5,   5,   6,   7,   7,
-     8,   9,   9,  10,  11,  12,  13,  14,  15,  16,  17,  19,  20},  // key follow 3
-  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-     0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   2,   2,   2,   2,
-     3,   3,   3,   4,   4,   4,   5,   5,   6,   7,   7,   8,   9,  10,  11,  11,
-    12,  13,  15,  16,  18,  20,  22,  24,  27,  30,  33,  36,  40},  // key follow 4
-  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-     1,   1,   1,   1,   1,   1,   2,   2,   2,   2,   2,   3,   3,   3,   3,   3,
-     4,   4,   5,   5,   6,   7,   7,   8,   9,  10,  11,  12,  13,  14,  15,  17,
-    18,  20,  23,  26,  29,  33,  37,  42,  47,  53,  60,  67,  76},  // key follow 5
-  {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,
-     1,   1,   1,   1,   1,   2,   2,   2,   2,   2,   3,   3,   3,   4,   4,   5,
-     5,   6,   7,   7,   8,   9,  10,  10,  11,  13,  14,  15,  16,  18,  20,  22,
-    24,  27,  31,  36,  41,  46,  53,  60,  69,  78,  89, 102, 116},  // key follow 6
-  {  0,   0,   0,   0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,
-     1,   2,   2,   2,   2,   2,   2,   3,   3,   3,   4,   4,   5,   5,   6,   6,
-     7,   8,   9,   9,  10,  11,  12,  13,  15,  16,  18,  20,  22,  24,  28,  32,
-    36,  42,  49,  56,  65,  76,  88, 101, 118, 136, 158, 183, 212},  // key follow 7
-  {  0,   0,   0,   0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,
-     1,   2,   2,   2,   2,   2,   2,   3,   3,   3,   4,   4,   5,   6,   7,   8,
-     9,  10,  11,  13,  14,  16,  17,  19,  21,  24,  26,  29,  32,  36,  40,  44,
-    48,  57,  68,  80,  95, 113, 134, 159, 188, 223, 264, 314, 372},  // key follow 8
-  {  0,   0,   0,   0,   0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,
-     2,   2,   2,   2,   3,   3,   3,   4,   4,   4,   6,   6,   8,   8,  10,  10,
-    12,  12,  14,  16,  16,  18,  20,  20,  24,  28,  32,  36,  40,  44,  52,  60,
-    69,  82,  98, 117, 140, 167, 199, 238, 285, 340, 438, 564, 727},  // key follow 9
+// Rate codes added to every DCA step by the key follow, per key follow value
+// and note C2..C7 (analysis/dca_keyfollow_code.csv). Measured on a CZ-101 at
+// C2..C7, A4, A5 and (key follow 9) every note of C4..C6 and A6, where every
+// point is an integer within 0.07 code; interpolated linearly in between.
+constexpr int16 kDcaKeyFollowCode[kNumKeyFollowOptions][kKeyFollowNumNotes] = {
+  { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},  // key follow 0
+  { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,
+    1,  1,  1,  1,  2,  2,  2,  2,  2,  3,  3,  3,  3},  // key follow 1
+  { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,
+    1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  3,  3,  3,  3,  4,
+    4,  4,  5,  5,  5,  6,  6,  6,  7,  7,  7,  8,  8},  // key follow 2
+  { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,
+    2,  2,  2,  2,  2,  2,  3,  3,  3,  4,  4,  4,  5,  5,  5,  6,
+    6,  6,  7,  7,  8,  8,  9,  9, 10, 10, 11, 11, 12},  // key follow 3
+  { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  3,
+    3,  3,  3,  4,  4,  4,  5,  5,  5,  6,  6,  6,  7,  7,  7,  8,
+    8,  9, 10, 10, 11, 12, 13, 13, 14, 15, 16, 16, 17},  // key follow 4
+  { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  3,  3,  3,  3,  4,
+    4,  4,  4,  5,  5,  5,  6,  6,  7,  7,  8,  8,  9,  9, 10, 10,
+   11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23},  // key follow 5
+  { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  3,  3,  3,  4,  4,  4,
+    5,  5,  5,  6,  6,  7,  7,  8,  8,  9,  9, 10, 10, 11, 12, 12,
+   13, 14, 15, 17, 18, 19, 20, 22, 23, 24, 25, 27, 28},  // key follow 6
+  { 0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  2,
+    2,  2,  2,  2,  2,  3,  3,  3,  3,  3,  4,  4,  4,  5,  5,  5,
+    6,  6,  6,  7,  7,  8,  8,  9, 10, 10, 11, 12, 12, 13, 14, 15,
+   16, 18, 19, 21, 22, 24, 25, 27, 28, 30, 31, 33, 34},  // key follow 7
+  { 0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  2,
+    2,  2,  2,  2,  2,  3,  3,  3,  3,  3,  4,  4,  5,  5,  6,  6,
+    7,  7,  8,  8,  9, 10, 11, 11, 12, 13, 14, 14, 15, 16, 17, 18,
+   19, 21, 23, 24, 26, 28, 30, 31, 33, 35, 37, 38, 40},  // key follow 8
+  { 0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  2,
+    2,  2,  2,  3,  3,  3,  3,  4,  4,  4,  5,  5,  6,  6,  7,  7,
+    8,  8,  9, 10, 10, 11, 12, 12, 13, 14, 15, 16, 17, 18, 20, 21,
+   22, 24, 26, 28, 30, 31, 33, 35, 37, 39, 42, 44, 47},  // key follow 9
 };
 
 // Level codes subtracted from the DCW targets, per key follow value and note
@@ -184,24 +197,46 @@ int32 toPanelValue(ParamValue normalized) {
   return std::clamp(value, 0, kMaxPanelValue);
 }
 
-// Panel rate (0..99) -> chip rate code (DCA/DCW 2..121, DCO 0..127).
+// Panel rate (0..99) -> chip rate code (DCA 0..119, DCW 8..127, DCO 0..127).
 int32 rateCode(EgKind egKind, int32 rate) {
-  if (egKind == EgKind::kDco) {
-    return kDcoRateCodeMax * rate / kMaxPanelValue;
+  switch (egKind) {
+    case EgKind::kDco:
+      return kDcoRateCodeMax * rate / kMaxPanelValue;
+    case EgKind::kDcw:
+      return kDcaRateCodeMax * rate / kMaxPanelValue + kDcwRateCodeOffset;
+    case EgKind::kDca:
+      return kDcaRateCodeMax * rate / kMaxPanelValue;
+    default:  // never reached
+      return 0;
   }
-  return 119 * rate / kMaxPanelValue + kRateCodeOffset;
+}
+
+int32 releaseRateCodeMax(EgKind egKind) {
+  return (egKind == EgKind::kDcw) ? kReleaseRateCodeMax + kDcwRateCodeOffset : kReleaseRateCodeMax;
 }
 
 int32 chipStep(int32 code) {
-  return (8 + (code & 7)) << (code >> 3);
+  int32 exponent = code >> 3;
+  int32 step = (8 + (code & 7)) << exponent;
+  if (exponent >= kStepHalfLsbExponent) {
+    step += 1 << (exponent - 1);
+  }
+  return step;
+}
+
+double unitScale(EgKind egKind) {
+  switch (egKind) {
+    case EgKind::kDco:
+      return kDcoUnitScale;
+    case EgKind::kDcw:
+      return kDcwUnitScale;
+    default:
+      return kDcaUnitScale;
+  }
 }
 
 int32 keyFollowIndex(int32 note) {
   return std::clamp(note, kKeyFollowLowestNote, kKeyFollowHighestNote) - kKeyFollowLowestNote;
-}
-
-double dcaKeyFollowFactor(int8 keyFollow, int32 note) {
-  return (12.0 + kDcaKeyFollowK[keyFollow][keyFollowIndex(note)]) / 12.0;
 }
 
 }  // namespace
@@ -215,7 +250,7 @@ EG::EG()
       step_(kEgStepHalt),
       released_(false),
       keyFollow_(0),
-      speedFactor_(1.0),
+      rateCodeOffset_(0),
       levelOffset_(0),
       level_(0.0),
       dLevel_(0.0),
@@ -260,17 +295,16 @@ double EG::levelToTarget(int32 level) const {
 }
 
 double EG::rateToDLevel(int32 rate) const {
-  double step = chipStep(rateCode(egKind_, rate)) * speedFactor_;
+  int32 code = std::min(rateCode(egKind_, rate) + rateCodeOffset_, kMaxRateCode);
   if (released_) {
-    step = std::min(step, static_cast<double>(chipStep(kReleaseRateCodeMax)));
+    code = std::min(code, releaseRateCodeMax(egKind_));
   }
-  double unitScale = (egKind_ == EgKind::kDco) ? kDcoUnitScale : kDcaDcwUnitScale;
-  return step * (kChipTickRate / kInternalSampleRate) / unitScale;
+  return chipStep(code) * (kChipTickRate / kInternalSampleRate) / unitScale(egKind_);
 }
 
 void EG::setup(EgKind egKind, int32 note) {
   egKind_ = egKind;
-  speedFactor_ = (egKind == EgKind::kDca) ? dcaKeyFollowFactor(keyFollow_, note) : 1.0;
+  rateCodeOffset_ = (egKind == EgKind::kDca) ? kDcaKeyFollowCode[keyFollow_][keyFollowIndex(note)] : 0;
   levelOffset_ = (egKind == EgKind::kDcw) ? kDcwKeyFollowS[keyFollow_][keyFollowIndex(note)] : 0;
   released_ = false;
   level_ = 0.0;
